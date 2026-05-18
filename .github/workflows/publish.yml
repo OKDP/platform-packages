@@ -42,7 +42,7 @@ jobs:
         id: prefix
         uses: ./.github/actions/oci-package-prefix
         with:
-          context_path: clusters/sandbox/default-context.yaml
+          context_path: 10-platform-context.yaml
 
   publish:
     needs: [get-package-oci-prefix]

@@ -4,7 +4,7 @@
   ],
   "packages": {
     ".": {
-      "initial-version": "0.4.0",
+      "initial-version": "0.3.0",
       "changelog-path": "CHANGELOG.md",
       "release-type": "simple",
       "changelog-type": "default",

@@ -34,7 +34,7 @@ on:
         type: string
         default: "ghcr.io"
       oci_package_prefix:
-        description: "OCI package prefix, e.g., 'quay.io/my-org/<PACKAGE-PREFIX>', i.e.: <PACKAGE-PREFIX> = sandbox-packages"
+        description: "OCI package prefix, e.g., 'quay.io/my-org/<PACKAGE-PREFIX>', i.e.: <PACKAGE-PREFIX> = platform-packages"
         required: true
         type: string
       runs-on:
@@ -65,7 +65,7 @@ jobs:
         with:
           registry: ${{ inputs.ci_registry }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
       - name: Login into public registry (${{ inputs.registry }}) 🔐
         if: inputs.publish_to_registry == 'true'
@@ -80,6 +80,7 @@ jobs:
         run:  |
           echo "OWNER=${GITHUB_REPOSITORY_OWNER@L}" >> $GITHUB_ENV
           echo "REGISTRY=${{ inputs.ci_registry }}" >> $GITHUB_ENV
+          echo "OCI_REPO_PREFIX=${{ inputs.ci_registry }}/${GITHUB_REPOSITORY@L}/${{ inputs.oci_package_prefix }}" >> $GITHUB_ENV
         shell: bash
 
       - name: Set public container registry namespace (${{ inputs.registry }}) 📦
@@ -87,6 +88,7 @@ jobs:
         run:  |
           echo "OWNER=${GITHUB_REPOSITORY_OWNER@L}" >> $GITHUB_ENV
           echo "REGISTRY=${{ inputs.registry }}" >> $GITHUB_ENV
+          echo "OCI_REPO_PREFIX=${{ inputs.registry }}/${GITHUB_REPOSITORY_OWNER@L}/${{ inputs.oci_package_prefix }}" >> $GITHUB_ENV
         shell: bash
 
       # Setup prerequisites
@@ -130,7 +132,7 @@ jobs:
       - name: Deploy KuboCD controllers on Kind 🛠️
         if: inputs.publish_to_registry == 'false'
         run:
-          kubectl apply -f clusters/sandbox/flux/kubocd.yaml
+          kubectl apply -f kubocd.yaml
 
       - name: Install KuboCD CLI 🛠️
         run: |
@@ -158,18 +160,18 @@ jobs:
         run: |
           for package in ${KUBOCD_PACKAGES}
           do
-             echo "kubocd package ${package} --ociRepoPrefix $REGISTRY/$OWNER/${{ inputs.oci_package_prefix }}"
-             kubocd package ${package} --ociRepoPrefix $REGISTRY/$OWNER/${{ inputs.oci_package_prefix }}
+             echo "kubocd package ${package} --ociRepoPrefix $OCI_REPO_PREFIX"
+             kubocd package ${package} --ociRepoPrefix $OCI_REPO_PREFIX
           done
         env:
           KCD_OCI_GHCR_IO_USER: ${{ github.actor }}
-          KCD_OCI_GHCR_IO_SECRET: ${{ secrets.GITHUB_TOKEN }}
+          KCD_OCI_GHCR_IO_SECRET: ${{ github.token }}
 
       - name: Create CI registry secret for KuboCD (all release namespaces) 🔐
         if: inputs.publish_to_registry == 'false'
         run: |
           release_namespaces="$(
-            find clusters/sandbox/releases -type f \( -name "*.yaml" -o -name "*.yml" \) \
+            find releases -type f \( -name "*.yaml" -o -name "*.yml" \) \
               -print0 | xargs -0 -n1 yq eval '.metadata.namespace // "default"' | sort -u
           )"
 
@@ -181,7 +183,7 @@ jobs:
             kubectl create secret docker-registry ci-registry-secret \
               --docker-server=${{ inputs.ci_registry }} \
               --docker-username="${{ github.actor }}" \
-              --docker-password="${{ secrets.GITHUB_TOKEN }}" \
+              --docker-password="${{ github.token }}" \
               --docker-email="${{ github.actor }}@users.noreply.github.com" \
               -n "$ns" \
               --dry-run=client -o yaml | kubectl apply -f -
@@ -191,12 +193,14 @@ jobs:
       - name: Deploy and test releases on Kind cluster 🚀
         if: inputs.publish_to_registry == 'false'
         run: |
-          KUBOCD_CONTEXT=clusters/sandbox/default-context.yaml
-          KUBOCD_RELEASES=$(find clusters/sandbox/releases -type d ! -exec find {} -type d -mindepth 1 \; | sort -u | tr '\n' ' ')
+          KUBOCD_CONTEXTS=$(find . -maxdepth 1 -type f -name '*-context.yaml' | sort | tr '\n' ' ')
+          KUBOCD_RELEASES=$(find releases -type d ! -exec find {} -type d -mindepth 1 \; | sort -u | tr '\n' ' ')
 
-          echo "Apply context: $KUBOCD_CONTEXT"
-          sed "s|${{ inputs.registry }}/$OWNER/${{ inputs.oci_package_prefix }}|${{ inputs.ci_registry }}/$OWNER/${{ inputs.oci_package_prefix }}|g" \
-          "$KUBOCD_CONTEXT" | kubectl apply -f -
+          echo "Apply contexts: $KUBOCD_CONTEXTS"
+          for context in $KUBOCD_CONTEXTS; do
+            sed "s|${{ inputs.registry }}/$OWNER/${{ inputs.oci_package_prefix }}|$OCI_REPO_PREFIX|g" \
+            "$context" | kubectl apply -f -
+          done
 
           # Find all KuboCD releases
           echo "Found KuboCD releases: $KUBOCD_RELEASES"
@@ -206,7 +210,7 @@ jobs:
             find "$release" -type f \( -name "*.yaml" -o -name "*.yml" \) | while read rel; do
               # Update repository path and add secretRef
               yq eval "
-                .spec.package.repository |= sub(\"${{ inputs.registry }}/$OWNER/${{ inputs.oci_package_prefix }}\",\"${{ inputs.ci_registry }}/$OWNER/${{ inputs.oci_package_prefix }}\") |
+                .spec.package.repository |= sub(\"${{ inputs.registry }}/$OWNER/${{ inputs.oci_package_prefix }}\",strenv(OCI_REPO_PREFIX)) |
                 .spec.package.secretRef = {\"name\": \"ci-registry-secret\"}
               " "$rel" | kubectl apply -f -
             done
@@ -291,8 +295,8 @@ jobs:
         run: |
           for package in ${KUBOCD_PACKAGES}
           do
-             echo "kubocd package ${package} --ociRepoPrefix $REGISTRY/$OWNER/${{ inputs.oci_package_prefix }}"
-             kubocd package ${package} --ociRepoPrefix $REGISTRY/$OWNER/${{ inputs.oci_package_prefix }}
+             echo "kubocd package ${package} --ociRepoPrefix $OCI_REPO_PREFIX"
+             kubocd package ${package} --ociRepoPrefix $OCI_REPO_PREFIX
           done
         env:
           KCD_OCI_QUAY_IO_USER: ${{ secrets.REGISTRY_USERNAME }}

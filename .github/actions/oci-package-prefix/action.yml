@@ -15,16 +15,16 @@
 #
 
 name: Get OCI package prefix
-description: Extract oci_package_prefix from Context YAML (spec.context.okdp.packageRepository)
+description: Extract oci_package_prefix from Context YAML (spec.context.platform.portal.packageRepository)
 
 inputs:
   context_path:
-    description: Path to the Context YAML file (e.g. clusters/sandbox/default-context.yaml)
+    description: Path to the Context YAML file (e.g. 10-platform-context.yaml)
     required: true
 
 outputs:
   oci_package_prefix:
-    description: Last path segment of spec.context.okdp.packageRepository
+    description: Last path segment of spec.context.platform.portal.packageRepository
     value: ${{ steps.context.outputs.oci_package_prefix }}
 
 runs:
@@ -47,7 +47,7 @@ runs:
           exit 1
         fi
   
-        repo="$(yq -e -r '.spec.context.okdp.packageRepository' "$FILE")"
+        repo="$(yq -e -r '.spec.context.platform.portal.packageRepository' "$FILE")"
         prefix="${repo##*/}"
   
         echo "packageRepository=$repo"

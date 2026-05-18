@@ -4,6 +4,7 @@
 *.swp
 *.swo
 *~
+*.iml
 
 # OS files
 .DS_Store
