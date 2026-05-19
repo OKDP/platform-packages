@@ -73,6 +73,10 @@ jobs:
 
   kubocd-packages-ci:
     needs: [get-package-oci-prefix]
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/kubocd-package-template.yml
     with:
       ci_registry: "ghcr.io"
@@ -80,5 +84,3 @@ jobs:
       publish_to_registry: "false"
       oci_package_prefix: "${{ needs.get-package-oci-prefix.outputs.oci_package_prefix }}"
       runs-on: "ubuntu-latest"
-
-

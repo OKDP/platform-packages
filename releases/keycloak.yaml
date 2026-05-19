@@ -30,4 +30,6 @@ spec:
   parameters:
     adminPassword: admin
     adminUser: admin
+    memoryGi: 2
+    cpu: 0.5
   targetNamespace: keycloak
