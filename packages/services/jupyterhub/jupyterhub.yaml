@@ -440,7 +440,7 @@ modules:
           guarantee: {{ .Parameters.memoryGi }}G
       
         profileList:
-          - display_name: "🪶 Minimal Python1"
+          - display_name: "🪶 Minimal Python"
             description: "Lightweight image with only Python 3.12"
             kubespawner_override:
               image: quay.io/okdp/jupyter/minimal-notebook:python-3.12.12-hub-5.4.2-lab-4.5.0
