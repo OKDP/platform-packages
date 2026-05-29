@@ -19,7 +19,7 @@ name: trinodb
 #tag: 480-p01
 # Currently, the UI requires the version to conform to SemVer (https://simversion.github.io/)
 # https://github.com/OKDP/okdp-ui/blob/main/src/app/shared/utils/utils.ts#L131
-tag: 480.0.0-p02
+tag: 480.0.0-p03
 protected: false
 description: |
   Apache Trino - Distributed SQL query engine designed for large-scale data processing across multiple data sources.
@@ -68,7 +68,7 @@ modules:
     source:
       oci:
         repository: quay.io/okdp/charts/opal-secrets
-        tag: 0.1.0
+        tag: 0.1.1
     values: |
       fullnameOverride: {{ .Release.metadata.name }}-opal-secrets
   - name: opal
@@ -80,7 +80,7 @@ modules:
       helmRepository:
         url: https://permitio.github.io/opal-helm-chart
         chart: opal
-        version: 0.0.29
+        version: 0.0.30
     values: |
       image:
         client:
@@ -95,33 +95,15 @@ modules:
       client:
         extraEnv:
           OPAL_POLICY_STORE_URL: http://{{ .Release.metadata.name }}-opa.{{ .Release.spec.targetNamespace }}:443
-          OPAL_CLIENT_TOKEN:
-            valueFrom:
-              secretKeyRef:
-                name: opal-client-token-secret
-                key: token
+        secrets:
+          - opal-client-token-secret
 
       server:
         policyRepoUrl: {{ .Parameters.policyRepoUrl }}
         policyRepoMainBranch: "{{ .Parameters.policyRepoMainBranch }}"
-
-        OPAL_AUTH_PRIVATE_KEY:
-          valueFrom:
-            secretKeyRef:
-              name: opal-ssh-secret
-              key: ssh-privatekey
-
-        OPAL_AUTH_PUBLIC_KEY:
-          valueFrom:
-            secretKeyRef:
-              name: opal-ssh-secret
-              key: ssh-publickey
-
-        OPAL_AUTH_MASTER_TOKEN:
-          valueFrom:
-            secretKeyRef:
-              name: opal-master-token-secret
-              key: token
+        secrets:
+          - opal-ssh-secret
+          - opal-master-token-secret
 
         {{- with .Context.platform.proxy }}
         {{- if or .httpProxy .httpsProxy .noProxy }}
