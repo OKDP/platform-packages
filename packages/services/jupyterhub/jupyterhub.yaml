@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: jupyterhub
-tag: 4.3.3-p01
+tag: 4.3.3-p02
 protected: false
 description: |
   JupyterHub - Multi-user interactive development environment for data science and machine learning.
@@ -170,6 +170,7 @@ modules:
         config:
           # https://oauthenticator.readthedocs.io/en/latest/how-to/refresh.html
           JupyterHub:
+            hub_connect_url: "http://{{ $release }}-hub.{{ $namespace }}.svc.cluster.local:8081"
             authenticator_class: generic-oauth
             load_roles:
               - name: user
