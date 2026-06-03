@@ -37,7 +37,7 @@ schema:
       workerCpu: { type: number, default: 0.5, multipleOf: 0.25, description: "Worker CPU request in millicores (e.g., 500=0.5 vCPU, 1000=1 vCPU)." }
       enableOPA: { type: boolean, default: true, description: "Whether to enable OPA" }
       policyRepoUrl: { type: string, default: "https://github.com/OKDP/trino-opal-example-policy.git", description: "OPA policy repo URL" }
-      policyRepoMainBranch: { type: string, default: "feat/data-model", description: "OPA policy repo branch" }
+      policyRepoMainBranch: { type: string, default: "master", description: "OPA policy repo branch" }
   context:
     properties:
       platform:
@@ -60,7 +60,7 @@ modules:
     source:
       oci:
         repository: quay.io/okdp/charts/opa-server
-        tag: 0.1.0
+        tag: 0.1.1
     values: |
       fullnameOverride: {{ .Release.metadata.name }}-opa
   - name: opal-secrets
