@@ -1,6 +1,6 @@
 apiVersion: v1alpha1
 name: airflow
-tag: 3.2.1-p1
+tag: 3.2.1-p2
 protected: false
 description: |
   Apache Airflow 2.9.3 - Workflow orchestration platform with Spark Operator integration
@@ -225,7 +225,7 @@ modules:
         persistence:
             enabled: false
         gitSync:
-          {{- toYaml $airflowGitSyncValues | nindent 10 }}
+          {{- toYaml $airflowGitSyncValues | nindent 4 }}
           {{- with $airflowGitSync.credentialsSecret }}
           credentialsSecret: {{ required "context.airflow.dags.gitSync.credentialsSecret.name is required" .name | quote }}
           {{- end }}
