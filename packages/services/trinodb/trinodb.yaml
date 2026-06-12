@@ -19,7 +19,7 @@ name: trinodb
 #tag: 480-p01
 # Currently, the UI requires the version to conform to SemVer (https://simversion.github.io/)
 # https://github.com/OKDP/okdp-ui/blob/main/src/app/shared/utils/utils.ts#L131
-tag: 480.0.0-p03
+tag: 480.0.0-p04
 protected: false
 description: |
   Apache Trino - Distributed SQL query engine designed for large-scale data processing across multiple data sources.
@@ -58,11 +58,27 @@ modules:
   - name: opa
     timeout: 10m
     source:
-      oci:
-        repository: quay.io/okdp/charts/opa-server
-        tag: 0.1.1
+      helmRepository:
+        url: https://open-policy-agent.github.io/kube-mgmt/charts
+        chart: opa-kube-mgmt
+        version: 11.0.7
     values: |
       fullnameOverride: {{ .Release.metadata.name }}-opa
+      authz:
+        enabled: false
+      image:
+        repository: openpolicyagent/opa
+        tag: 1.16.1
+        pullPolicy: IfNotPresent
+      useHttps: false
+      port: 8181
+      mgmt:
+        enabled: false
+      rbac:
+        create: false
+      serviceAccount:
+        create: false
+
   - name: opal-secrets
     timeout: 10m
     source:
@@ -94,7 +110,7 @@ modules:
 
       client:
         extraEnv:
-          OPAL_POLICY_STORE_URL: http://{{ .Release.metadata.name }}-opa.{{ .Release.spec.targetNamespace }}:443
+          OPAL_POLICY_STORE_URL: http://{{ .Release.metadata.name }}-opa.{{ .Release.spec.targetNamespace }}:8181
         secrets:
           - opal-client-token-secret
 
@@ -421,7 +437,7 @@ modules:
         type: properties
         properties: |
           access-control.name=opa
-          opa.policy.uri=http://{{ .Release.metadata.name }}-opa.{{ .Release.spec.targetNamespace }}:443/v1/data/trino/allow
+          opa.policy.uri=http://{{ .Release.metadata.name }}-opa.{{ .Release.spec.targetNamespace }}:8181/v1/data/trino/allow
           opa.log-responses=true
           opa.log-requests=true
       {{- end }}
