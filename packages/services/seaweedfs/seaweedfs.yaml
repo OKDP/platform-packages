@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: seaweedfs
-tag: 4.17.0-p1
+tag: 4.17.0-p2
 protected: false
 description: |
   SeaweedFS is a simple and highly scalable distributed file system. There are the objectives to store billions of files and to serve the files fast!
@@ -291,7 +291,7 @@ modules:
         extraVolumes: |
           - name: auth-config
             configMap:
-              name: {{ .Release.metadata.name }}-auth-config-seaweedfs-auth-config
+              name: {{ .Release.metadata.name }}-auth-config
   
         extraVolumeMounts: |
           - name: auth-config
