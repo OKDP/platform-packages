@@ -28,6 +28,14 @@ spec:
         type: s3
         name: SeaweedFS
         region: dummy
+        # -- S3 capabilities exposed to consumers (see docs/design/storage-provider-contract.md).
+        #    Consumers template these instead of hardcoding: self-hosted = path-style + dummy region.
+        pathStyle: true
+        tls: true
+        # -- STS role ARN is a provider OUTPUT consumed by STS clients (Polaris) via {{ storage.sts.roleArn }}.
+        #    SeaweedFS = synthetic ARN; RustFS ignores it; Ceph/AWS = real IAM role ARN.
+        sts:
+          roleArn: arn:aws:iam::000000000000:role/S3WriteRole
         endpoints:
           apiUrl: https://seaweedfs-{{ .Release.namespace }}.{{ .Context.ingress.suffix }}
           stsUrl: https://seaweedfs-{{ .Release.namespace }}.{{ .Context.ingress.suffix }}

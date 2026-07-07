@@ -717,64 +717,45 @@ spec:
                   - service_admin
                   - catalog_admin
 
-    # -- Sandbox-specific storage provider implementation settings for SeaweedFS databases, S3 credentials, STS, and identities.
+    # -- Neutral storage contract (see docs/design/storage-provider-contract.md). 
     defaultStorage:
-      # Sandbox implementation-specific
-      # Consider this part already provided by your platform
-      # settings: {}
-      settings:
-        filer:
-          database:
-            provider: defaultDatabaseServer
-            name: seaweedfs
-            credentialsSecret:
-              name: creds-seaweedfs-db
-              usernameKey: username
-              passwordKey: password
-        s3:
-          enabled: true
-          s3_secret: creds-seaweedfs-identities
-          bucketAnonymousRead: true
-          credentialsSecret:
-            name: creds-seaweedfs-s3
-            accessKeyKey: accessKey
-            secretKeyKey: secretKey
+      buckets:
+        - { name: bronze }
+        - { name: silver }
+        - { name: gold }
+        - { name: hive, anonymousRead: true }
+        - { name: spark-events, anonymousRead: true }
 
-          sts:
-            enabled: true
-            roleArn: arn:aws:iam::000000000000:role/S3WriteRole
-
-          advanced:
-            identities:
-              hiveMetastore:
-                identity: hiveMetastore
-                actions: [ Read, Write, List ]
-              trino:
-                identity: trino
-                actions: [ Read, Write, List, Admin ]
-              jupyterHub:
-                identity: jupyterHub
-                actions: [ Read, Write, List ]
-              sparkHistory:
-                identity: sparkHistory
-                actions: [ Read, Write, List ]
-              # SeaweedFS matches the accessKey above in the SigV4 request to the configured S3 credentials
-              # under this identity. The identity name can be anything and has importance for debugging issues
-              # SeaweedFS expects an admin identity to authorize it for sts:AssumeRole.
-              # response: code=AccessDenied, type=Sender, message=user
-              # polaris is not authorized to assume role arn:aws:iam::000000000000:role/S3WriteRole
-              polaris:
-                identity: polaris
-                actions: [ Read, Write, List, Admin ]
-              airflow:
-                identity: airflow
-                actions: [ Read, Write, List, Admin ]
-              examples:
-                identity: examples
-                actions: [ Admin, Read, Write, List ]
-              seaweedfs:
-                identity: seaweedfs
-                actions: [ Admin ]
+      # -- Grants: self-contained principal -> credentials -> access. Backend-neutral verbs
+      #    (read/write/list/admin); each provider translates them to its native model.
+      #    `sts: true` marks a principal that needs AssumeRole. Grants reference the SAME secret the
+      #    consumer uses; the provider never reads the consumer context.
+      grants:
+        - principal: hiveMetastore
+          credentialsSecret: { name: creds-hive-metastore-s3, accessKeyKey: accessKey, secretKeyKey: secretKey }
+          buckets: ["*"]
+          actions: [read, write, list]
+        - principal: trino
+          credentialsSecret: { name: creds-trino-s3, accessKeyKey: S3_ACCESS_KEY, secretKeyKey: S3_SECRET_ACCESS }
+          buckets: ["*"]
+          actions: [read, write, list, admin]
+        - principal: jupyterHub
+          credentialsSecret: { name: creds-jupyterhub-s3, accessKeyKey: S3_ACCESS_KEY, secretKeyKey: S3_SECRET_KEY }
+          buckets: ["*"]
+          actions: [read, write, list]
+        - principal: sparkHistory
+          credentialsSecret: { name: creds-spark-history-s3, accessKeyKey: accessKey, secretKeyKey: secretKey }
+          buckets: ["*"]
+          actions: [read, write, list]
+        - principal: examples
+          credentialsSecret: { name: creds-examples-s3, accessKeyKey: S3_ACCESS_KEY, secretKeyKey: S3_SECRET_KEY }
+          buckets: ["*"]
+          actions: [read, write, list, admin]
+        - principal: polaris
+          credentialsSecret: { name: creds-polaris-s3, accessKeyKey: accessKey, secretKeyKey: secretKey }
+          buckets: ["*"]
+          actions: [read, write, list, admin]
+          sts: true
 
     # -- Sandbox-specific identity provider settings for Keycloak users, roles, clients, service accounts, and OIDC scopes.
     defaultIdp:
