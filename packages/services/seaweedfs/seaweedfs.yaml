@@ -15,10 +15,6 @@
 #
 
 # SeaweedFS storage ADAPTER (ADR-0001).
-# This package is an Adapter: it reads ONLY the neutral storage contract
-# (.Context.defaultStorage.buckets / .grants / .provider) and translates it to SeaweedFS-native
-# config (iam.json roles/policies, s3 identities, createBuckets). It MUST NOT reference any
-# consumer context (.Context.trino / .hiveMetastore / .jupyterHub / .sparkHistory / .polaris / ...).
 apiVersion: v1alpha1
 name: seaweedfs
 tag: 4.17.0-p6
