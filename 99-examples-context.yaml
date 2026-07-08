@@ -1122,10 +1122,6 @@ spec:
             owner:
               username: "keycloak"
               passwordSecret: creds-keycloak-db
-          - name: seaweedfs
-            owner:
-              username: "seaweedfs"
-              passwordSecret: creds-seaweedfs-db
           - name: polaris
             owner:
               username: "polaris"

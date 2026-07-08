@@ -21,7 +21,7 @@
 # consumer context (.Context.trino / .hiveMetastore / .jupyterHub / .sparkHistory / .polaris / ...).
 apiVersion: v1alpha1
 name: seaweedfs
-tag: 4.17.0-p5
+tag: 4.17.0-p6
 protected: false
 description: |
   SeaweedFS is a simple and highly scalable distributed file system. There are the objectives to store billions of files and to serve the files fast!
@@ -44,12 +44,8 @@ schema:
       filerStorage: { type: string, required: true, default: "0.5" }
       filerLogStorage: { type: string, required: true, default: "0.5" }
       identitiesSecretName: { type: string, required: true, default: "creds-seaweedfs-identities" }
-      # -- SeaweedFS's OWN admin/root S3 identity (backend-specific: SeaweedFS needs an admin identity
-      #    to authorize STS AssumeRole). It is NOT a consumer, so it lives in this package's schema,
-      #    not in the neutral `grants` contract.
-      adminSecretName: { type: string, required: true, default: "creds-seaweedfs-s3" }
-      adminAccessKeyKey: { type: string, required: true, default: "accessKey" }
-      adminSecretKeyKey: { type: string, required: true, default: "secretKey" }
+      adminAccessKey: { type: string, required: true, default: "snu8yoP6QAlY0ne4" }
+      adminSecretKey: { type: string, required: true, default: "PNzBcmeLNEdR0oviwm04NQAicOrDH1Km" }
   context:
     properties:
       platform:
@@ -73,8 +69,10 @@ modules:
   - name: auth-config
     source:
       oci:
-        repository: quay.io/okdp/charts/seaweedfs-auth-config
-        tag: 1.0.0
+        # FIXME: temporary personal GHCR while the inline-credentials change (chart 1.1.0) is validated;
+        # switch back to quay.io/okdp/charts/seaweedfs-auth-config once merged upstream.
+        repository: ghcr.io/alex-mabrouk/okdp-charts/seaweedfs-auth-config
+        tag: 1.1.0
     values: |
       {{- $namespace := printf "%v" .Release.spec.targetNamespace -}}
       {{- $release := printf "%v" .Release.metadata.name -}}
@@ -116,12 +114,10 @@ modules:
         enabled: true
         secretName: {{ .Parameters.identitiesSecretName }}
         identities:
-          # -- SeaweedFS's own admin identity (from this package's params, not a consumer grant).
           - name: seaweedfs
-            credentialsSecret:
-              name: {{ .Parameters.adminSecretName | quote }}
-              accessKeyKey: {{ .Parameters.adminAccessKeyKey | quote }}
-              secretKeyKey: {{ .Parameters.adminSecretKeyKey | quote }}
+            credentials:
+              accessKey: {{ .Parameters.adminAccessKey | quote }}
+              secretKey: {{ .Parameters.adminSecretKey | quote }}
             actions:
               - Admin
           {{- range $grant := $storage.grants }}
