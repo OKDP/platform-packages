@@ -37,9 +37,9 @@ spec:
         sts:
           roleArn: arn:aws:iam::000000000000:role/S3WriteRole
         endpoints:
-          apiUrl: https://seaweedfs-{{ .Release.namespace }}.{{ .Context.ingress.suffix }}
-          stsUrl: https://seaweedfs-{{ .Release.namespace }}.{{ .Context.ingress.suffix }}
-          consoleUrl: https://seaweedfs-console-{{ .Release.namespace }}.{{ .Context.ingress.suffix }}
+          apiUrl: https://s3.{{ .Context.ingress.suffix }}
+          stsUrl: https://s3.{{ .Context.ingress.suffix }}
+          consoleUrl: https://s3-console.{{ .Context.ingress.suffix }}
 
     # -- OIDC identity provider contract. The sandbox binds it to Keycloak, but any OIDC provider exposing these endpoints can be plugged in.
     defaultIdp:
