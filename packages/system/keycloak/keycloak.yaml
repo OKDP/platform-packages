@@ -270,7 +270,21 @@ modules:
                 }
                 {{- end }}
               ],
-              "accessTokenLifespan": {{ .Context.defaultIdp.settings.realm.accessTokenLifespan }}
+              "accessTokenLifespan": {{ .Context.defaultIdp.settings.realm.accessTokenLifespan }},
+              "components": {
+                "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy": [
+                  {
+                    "name": "Trusted Hosts",
+                    "providerId": "trusted-hosts",
+                    "subType": "anonymous",
+                    "config": {
+                      "host-sending-registration-request-must-match": ["true"],
+                      "client-uris-must-match": ["true"],
+                      "trusted-hosts": ["*.svc.cluster.local", "*.okdp.sandbox"]
+                    }
+                  }
+                ]
+              }
             }
 roles:
   - identity
