@@ -19,7 +19,7 @@ name: trinodb
 #tag: 480-p01
 # Currently, the UI requires the version to conform to SemVer (https://simversion.github.io/)
 # https://github.com/OKDP/okdp-ui/blob/main/src/app/shared/utils/utils.ts#L131
-tag: 480.0.0-p05
+tag: 480.0.0-p06
 protected: false
 description: |
   Apache Trino - Distributed SQL query engine designed for large-scale data processing across multiple data sources.
@@ -41,6 +41,9 @@ schema:
       OPAL_POLICY_SUBSCRIPTION_DIRS: {type: string, default: "trino_opa_policy", description: "Policy directories in the repository for which the client will subscribe to, seperated by ':'."}
       OPAL_POLICY_REPO_MANIFEST_PATH: { type: string, default: "trino_opa_policy", description: "The location of the manifest file in the remote repository."}
       opaPolicyPath: {type: string, default: "v1/data/trino/allow", description: "Path of the OPA policies for Trino used in the Trino variable opa.policy.uri."}
+      defaultclientScopes: { type: string, default: "web-origins acr roles profile groups basic email", description: "Default Trino client's clientScopes" }
+      optionalClientScopes: { type: string, default: "address phone organization offline_access microprofile-jwt", description: "Optional Trino client's clientScopes" }
+      enableDCR: { type: boolean, default: true, description: "Whether to enable Dynamic Client Registration" }
   context:
     properties:
       platform:
@@ -140,6 +143,50 @@ modules:
           {{- end }}
           {{- end }}
           {{- end }}
+
+  - name: oidc-dcr
+    enabled: "{{ .Parameters.enableDCR }}"
+    timeout: 10m
+    source:
+      oci:
+        repository: quay.io/adaltas/oidc-dcr
+        tag: 0.3.2
+    values: |
+      {{- $namespace := printf "%v" .Release.spec.targetNamespace -}}
+      {{- $release := printf "%v" .Release.metadata.name -}}
+      {{- $domain := printf "%v" .Context.platform.ingress.suffix -}}
+      
+      {{- $oidcId := .Context.trino.oidc.provider -}}
+      {{- $oidcProvider := (index .Context $oidcId).provider -}}
+
+      {{- $oidcIssuerUri := $oidcProvider.issuerUri
+            | replace "{{ .Release.namespace }}" $namespace
+            | replace "{{ .Release.metadata.name }}" $release
+            | replace "{{ .Context.ingress.suffix }}" $domain -}}
+            
+      ttl_seconds: 30
+      registration_url: "{{ $oidcIssuerUri }}/clients-registrations/openid-connect/"
+      request:
+        application_type: web
+        client_name: "{{ $release }}-{{ $namespace }}"
+        redirect_uris:
+          - "https://trino-{{ $namespace }}.{{ $domain }}/oauth2/callback"
+        logo_uri: "https://landscape.cncf.io/logos/008125b82108f19aea6b0004ce5f255b72bab5b5e5c169a302d7bf845edb8e6b.svg"
+        grant_types:
+          - "authorization_code"
+          - "client_credentials"
+        scope: "{{ printf "%s %s" .Parameters.defaultclientScopes .Parameters.optionalClientScopes }}"
+      tls: 
+        insecure: false
+        certificate: "certs-bundle"
+      secret: "{{ $release }}-{{ $namespace }}-dcr"
+      mapping:
+        use_default: false
+        key_mapping:
+          OIDC_CLIENT_ID: ".client_id"
+          OIDC_CLIENT_SECRET: ".client_secret"
+          OIDC_ISSUER_URL: "{{ $oidcIssuerUri }}"
+          OIDC_SCOPES: "{{ printf "%d %o" .Parameters.defaultclientScopes .Parameters.optionalClientScopes | join " " }}"
 
   - name: main
     dependsOn:
@@ -278,14 +325,24 @@ modules:
         - name: TRINO_OAUTH_CLIENT_ID
           valueFrom:
             secretKeyRef:
+              {{- if .Parameters.enableDCR }}
+              name: {{ $release }}-{{ $namespace }}-dcr
+              key: OIDC_CLIENT_ID
+              {{- else }}
               name: {{ .Context.trino.oidc.credentialsSecret.name }}
               key: {{ .Context.trino.oidc.credentialsSecret.clientIdKey }}
+              {{- end }}
       
         - name: TRINO_OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
+              {{- if .Parameters.enableDCR }}
+              name: {{ $release }}-{{ $namespace }}-dcr
+              key: OIDC_CLIENT_SECRET
+              {{- else }}
               name: {{ .Context.trino.oidc.credentialsSecret.name }}
               key: {{ .Context.trino.oidc.credentialsSecret.clientSecretKey }}
+              {{- end }}
       
         - name: TRINO_SHARED_SECRET
           valueFrom:
