@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: keycloak
-tag: 24.4.11-p08
+tag: 24.4.11-p09
 protected: false
 description: |
   Keycloak identity and access management for Kubernetes
@@ -281,6 +281,19 @@ modules:
                       "host-sending-registration-request-must-match": ["true"],
                       "client-uris-must-match": ["true"],
                       "trusted-hosts": ["*.svc.cluster.local", "*.okdp.sandbox"]
+                    }
+                  },
+                  {
+                    "name": "Allowed Client Scopes",
+                    "providerId": "allowed-client-templates",
+                    "subType": "anonymous",
+                    "config": {
+                      "allow-default-scopes": [
+                        "true"
+                      ],
+                      "allowed-client-scopes": [
+                        "groups"
+                      ]
                     }
                   }
                 ]
