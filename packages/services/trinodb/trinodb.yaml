@@ -43,7 +43,7 @@ schema:
       opaPolicyPath: {type: string, default: "v1/data/trino/allow", description: "Path of the OPA policies for Trino used in the Trino variable opa.policy.uri."}
       defaultclientScopes: { type: string, default: "web-origins acr roles profile groups basic email", description: "Default Trino client's clientScopes" }
       optionalClientScopes: { type: string, default: "address phone organization offline_access microprofile-jwt", description: "Optional Trino client's clientScopes" }
-      enableDCR: { type: boolean, default: true, description: "Whether to enable Dynamic Client Registration" }
+      enableDCR: { type: boolean, default: false, description: "Whether to enable Dynamic Client Registration" }
   context:
     properties:
       platform:
