@@ -19,7 +19,7 @@ name: trino
 #tag: 480-p01
 # Currently, the UI requires the version to conform to SemVer (https://simversion.github.io/)
 # https://github.com/OKDP/okdp-ui/blob/main/src/app/shared/utils/utils.ts#L131
-tag: 480.0.0-p06
+tag: 480.0.0-p07
 protected: false
 description: |
   Apache Trino - Distributed SQL query engine designed for large-scale data processing across multiple data sources.
@@ -62,6 +62,7 @@ schema:
 
 modules:
   - name: opa
+    enabled: "{{ .Parameters.enableOPA }}"
     timeout: 10m
     source:
       helmRepository:
@@ -86,6 +87,7 @@ modules:
         create: false
 
   - name: opal-secrets
+    enabled: "{{ .Parameters.enableOPA }}"
     timeout: 10m
     source:
       oci:
@@ -94,6 +96,7 @@ modules:
     values: |
       fullnameOverride: {{ .Release.metadata.name }}-opal-secrets
   - name: opal
+    enabled: "{{ .Parameters.enableOPA }}"
     dependsOn:
       - opa
       - opal-secrets
@@ -189,8 +192,6 @@ modules:
           OIDC_SCOPES: "{{ printf "%d %o" .Parameters.defaultclientScopes .Parameters.optionalClientScopes | join " " }}"
 
   - name: main
-    dependsOn:
-      - opal
     timeout: 10m
     source:
       helmRepository:
