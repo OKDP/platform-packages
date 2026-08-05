@@ -36,6 +36,7 @@ schema:
       workerMemoryGi: { type: number, default: 2, multipleOf: 0.25, description: "Worker memory (GiB) used for Kubernetes requests/limits (recommended: request=limit)." }
       workerCpu: { type: number, default: 0.5, multipleOf: 0.25, description: "Worker CPU request in millicores (e.g., 500=0.5 vCPU, 1000=1 vCPU)." }
       enableOPA: { type: boolean, default: true, description: "Whether to enable OPA." }
+      enableOPAL: { type: boolean, default: false, description: "Whether to enable OPAL." }
       policyRepoUrl: { type: string, default: "https://github.com/OKDP/okdp-examples.git", description: "OPA policy repo URL" }
       policyRepoMainBranch: { type: string, default: "main", description: "OPA policy repo branch." }
       OPAL_POLICY_SUBSCRIPTION_DIRS: {type: string, default: "trino_opa_policy", description: "Policy directories in the repository for which the client will subscribe to, seperated by ':'."}
@@ -84,14 +85,27 @@ modules:
         - "--set=status.console=true"
         - "--set=decision_logs.console=true"
       mgmt:
-        enabled: false
+        enabled: {{ not .Parameters.enableOPAL }}
+        startupProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /health
+            port: 8181
+            scheme: HTTP
+          initialDelaySeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 10
+        data:
+          enabled: true
+        policies:
+          enabled: true
       rbac:
-        create: false
+        create: {{ not .Parameters.enableOPAL }}
       serviceAccount:
-        create: false
+        create: {{ not .Parameters.enableOPAL }}
 
   - name: opal-secrets
-    enabled: "{{ .Parameters.enableOPA }}"
+    enabled: "{{ and .Parameters.enableOPA .Parameters.enableOPAL }}"
     timeout: 10m
     source:
       oci:
@@ -100,7 +114,7 @@ modules:
     values: |
       fullnameOverride: {{ .Release.metadata.name }}-opal-secrets
   - name: opal
-    enabled: "{{ .Parameters.enableOPA }}"
+    enabled: "{{ and .Parameters.enableOPA .Parameters.enableOPAL }}"
     dependsOn:
       - opa
       - opal-secrets
