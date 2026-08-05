@@ -79,6 +79,10 @@ modules:
         pullPolicy: IfNotPresent
       useHttps: false
       port: 8181
+      extraArgs:
+        - "--log-format=json-pretty"
+        - "--set=status.console=true"
+        - "--set=decision_logs.console=true"
       mgmt:
         enabled: false
       rbac:
