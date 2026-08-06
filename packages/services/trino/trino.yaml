@@ -81,10 +81,11 @@ modules:
         pullPolicy: IfNotPresent
       useHttps: false
       port: 8181
+      {{- if .Parameters.enableOPADebugLogs }}
       extraArgs:
-        - "--log-format=json-pretty"
         - "--set=status.console=true"
         - "--set=decision_logs.console=true"
+      {{- end }}
       mgmt:
         enabled: {{ not .Parameters.enableOPAL }}
         startupProbe:
