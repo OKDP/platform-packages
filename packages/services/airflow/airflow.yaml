@@ -1,6 +1,6 @@
 apiVersion: v1alpha1
 name: airflow
-tag: 3.2.1-p2
+tag: 3.2.1-p3
 protected: false
 description: |
   Apache Airflow 2.9.3 - Workflow orchestration platform with Spark Operator integration
@@ -15,6 +15,9 @@ usage:
       Authenticate via the configured OIDC provider.
 
 schema:
+  parameters:
+    properties:
+      enableDCR: { type: boolean, default: false, description: "Whether to enable Dynamic Client Registration" }
   context:
     properties:
       platform:
@@ -32,6 +35,59 @@ schema:
               suffix: { type: string, required: true }
 
 modules:
+  - name: oidc-dcr
+    enabled: "{{ .Parameters.enableDCR }}"
+    timeout: 10m
+    source:
+      oci:
+        repository: quay.io/adaltas/oidc-dcr
+        tag: 0.3.2
+    values: |
+      {{- $namespace := printf "%v" .Release.spec.targetNamespace -}}
+      {{- $release := printf "%v" .Release.metadata.name -}}
+      {{- $domain := printf "%v" .Context.platform.ingress.suffix -}}
+
+      {{- $oidcId := .Context.airflow.oidc.provider -}}
+      {{- $oidcProvider := (index .Context $oidcId).provider -}}
+
+      {{- $oidcIssuerUri := $oidcProvider.issuerUri
+            | replace "{{ .Release.namespace }}" $namespace
+            | replace "{{ .Release.metadata.name }}" $release
+            | replace "{{ .Context.ingress.suffix }}" $domain -}}
+
+      {{- $oidcRegistrationUrl := $oidcProvider.endpoints.clientRegistrationUrl
+            | replace "{{ .Context.ingress.suffix }}" $domain -}}
+
+      {{- $airflowScopes := "" -}}
+      {{- range .Context.defaultIdp.settings.clients -}}
+        {{- if eq .clientId "airflow" -}}
+          {{- $airflowScopes = concat .defaultClientScopes .optionalClientScopes | join " " -}}
+        {{- end -}}
+      {{- end -}}
+      
+      ttl_seconds: 30
+      registration_url: "{{ $oidcRegistrationUrl }}"
+      request:
+        application_type: web
+        client_name: "{{ $release }}-{{ $namespace }}"
+        redirect_uris:
+          - "https://airflow-{{ $namespace }}.{{ $domain }}/auth/oauth-authorized/oidc"
+        logo_uri: "https://raw.githubusercontent.com/apache/airflow/c3f9da4846c8bde6b70aff771615d39e010decb0/airflow-core/docs/img/logos/wordmark_1.svg"
+        grant_types:
+          - "authorization_code"
+          - "client_credentials"
+        scope: "{{ $airflowScopes }}"
+      tls:
+        insecure: false
+        certificate: "certs-bundle"
+      secret: "{{ $release }}-{{ $namespace }}-dcr"
+      mapping:
+        use_default: false
+        key_mapping:
+          OIDC_CLIENT_ID: ".client_id"
+          OIDC_CLIENT_SECRET: ".client_secret"
+          OIDC_ISSUER_URL: "{{ $oidcIssuerUri }}"
+          OIDC_SCOPES: "{{ $airflowScopes }}"
   - name: main
     timeout: 15m
     source:
@@ -88,13 +144,23 @@ modules:
         - name: AIRFLOW_OIDC_CLIENT_ID
           valueFrom:
             secretKeyRef:
+              {{- if .Parameters.enableDCR }}
+              name: {{ $release }}-{{ $namespace }}-dcr
+              key: OIDC_CLIENT_ID
+              {{- else }}
               name: {{ $airflowOidc.credentialsSecret.name }}
               key: {{ $airflowOidc.credentialsSecret.clientIdKey }}
+              {{- end }}
         - name: AIRFLOW_OIDC_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
+              {{- if .Parameters.enableDCR }}
+              name: {{ $release }}-{{ $namespace }}-dcr
+              key: OIDC_CLIENT_SECRET
+              {{- else }}
               name: {{ $airflowOidc.credentialsSecret.name }}
               key: {{ $airflowOidc.credentialsSecret.clientSecretKey }}
+              {{- end }}
         - name: AIRFLOW_OIDC_API_BASE_URL
           value: {{ $airflowOidcBaseUrl | quote }}
         - name: AIRFLOW_OIDC_ACCESS_TOKEN_URL
