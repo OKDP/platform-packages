@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: okdp-ui
-tag: 0.4.1-p02
+tag: 0.4.1-p03
 protected: false
 description: |
   OKDP UI - Frontend web interface for the Open Kubernetes Data Platform
@@ -86,7 +86,7 @@ modules:
 
       ingress:
         enabled: true
-        className: "nginx"
+        className: {{ .Context.platform.ingress.className }}
         annotations:
           cert-manager.io/cluster-issuer: "{{ .Context.platform.certificateIssuers.selfSigned.name }}"
           nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"

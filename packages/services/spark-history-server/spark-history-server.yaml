@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: spark-history-server
-tag: 3.5.1-p04
+tag: 3.5.1-p05
 protected: false
 description: |
   Spark History Server - Monitoring and debugging interface for Apache Spark applications.
@@ -122,7 +122,7 @@ modules:
       
       ingress:
         enabled: true
-        ingressClassName: "nginx"
+        ingressClassName: {{ .Context.platform.ingress.className }}
         annotations:
           nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
           cert-manager.io/cluster-issuer: {{ .Context.platform.certificateIssuers.selfSigned.name }}
@@ -228,7 +228,7 @@ modules:
       
       ingress:
         enabled: true
-        className: "nginx"
+        className: {{ .Context.platform.ingress.className }}
         annotations:
           nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
           cert-manager.io/cluster-issuer: {{ .Context.platform.certificateIssuers.selfSigned.name }}

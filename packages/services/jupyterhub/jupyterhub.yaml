@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: jupyterhub
-tag: 4.3.3-p02
+tag: 4.3.3-p03
 protected: false
 description: |
   JupyterHub - Multi-user interactive development environment for data science and machine learning.
@@ -239,7 +239,7 @@ modules:
         annotations:
           nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
           cert-manager.io/cluster-issuer: "{{ .Context.platform.certificateIssuers.selfSigned.name }}"
-        ingressClassName: nginx
+        ingressClassName: {{ .Context.platform.ingress.className }}
         hosts:
           - {{ $jupyterHost }}
         tls:
