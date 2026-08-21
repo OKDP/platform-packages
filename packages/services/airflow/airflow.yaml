@@ -76,7 +76,7 @@ modules:
         application_type: web
         client_name: "{{ $release }}-{{ $namespace }}"
         redirect_uris:
-          - "https://airflow-{{ $namespace }}.{{ $domain }}/auth/oauth-authorized/oidc"
+          - "{{ $airflowUrl }}/auth/oauth-authorized/oidc"
         logo_uri: "https://raw.githubusercontent.com/apache/airflow/c3f9da4846c8bde6b70aff771615d39e010decb0/airflow-core/docs/img/logos/wordmark_1.svg"
         grant_types:
           - "authorization_code"
