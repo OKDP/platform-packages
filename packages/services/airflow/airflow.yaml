@@ -58,6 +58,11 @@ modules:
       {{- $oidcRegistrationUrl := $oidcProvider.endpoints.clientRegistrationUrl
             | replace "{{ .Context.ingress.suffix }}" $domain -}}
 
+      {{- $airflowUrl := .Context.airflow.endpoint.url
+            | replace "{{ .Release.namespace }}" $namespace
+            | replace "{{ .Release.metadata.name }}" $release
+            | replace "{{ .Context.ingress.suffix }}" $domain -}}
+
       {{- $airflowScopes := "" -}}
       {{- range .Context.defaultIdp.settings.clients -}}
         {{- if eq .clientId "airflow" -}}
