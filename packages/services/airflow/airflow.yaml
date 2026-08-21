@@ -275,7 +275,7 @@ modules:
           enabled: true
           ingressClassName: {{ .Context.platform.ingress.className }}
           annotations:
-            kubernetes.io/ingress.class: nginx
+            kubernetes.io/ingress.class: {{ .Context.platform.ingress.className }}
             cert-manager.io/cluster-issuer: {{ .Context.platform.certificateIssuers.selfSigned.name }}
             nginx.ingress.kubernetes.io/proxy-body-size: "0"
 
