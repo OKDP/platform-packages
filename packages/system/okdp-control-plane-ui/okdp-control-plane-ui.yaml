@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: okdp-control-plane-ui
-tag: 0.8.0-p02
+tag: 0.7.0-p01
 protected: false
 description: |
   OKDP UI - Frontend web interface for the Open Kubernetes Data Platform
@@ -30,7 +30,7 @@ schema:
   parameters:
     properties:
       imageRepository: { type: string, default: "quay.io/okdp/images/okdp-control-plane-ui", description: "Console image repository." }
-      imageTag: { type: string, default: "0.8.0", description: "Console image tag. Not empty on purpose: empty resolves to the chart appVersion, which is not published as an image." }
+      imageTag: { type: string, default: "0.7.0", description: "Console image tag. Set explicitly so the deployed image is pinned rather than following the chart appVersion." }
       host: { type: string, description: "Console host. Defaults to okdp-ui.<ingress suffix>." }
       oidcAuthority: { type: string, required: true, description: "Issuer the console redirects to, injected at container start rather than baked into the bundle." }
       oidcClientId: { type: string, default: "okdp-ui" }
@@ -57,7 +57,7 @@ modules:
     source:
       oci:
         repository: quay.io/okdp/charts/okdp-control-plane-ui
-        tag: 0.8.0
+        tag: 0.7.0
     values: |
       {{- $domain := printf "%v" .Context.ingress.suffix -}}
       {{- $host := .Parameters.host | default (printf "okdp-ui.%s" $domain) -}}
