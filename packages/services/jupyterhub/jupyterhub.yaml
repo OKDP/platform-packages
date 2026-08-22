@@ -19,7 +19,7 @@
 
 apiVersion: v1alpha1
 name: jupyterhub
-tag: 4.3.3-p05
+tag: 4.3.3-p06
 protected: false
 description: |
   JupyterHub - Multi-user interactive development environment for data science and machine learning.
@@ -544,8 +544,8 @@ modules:
             kubespawner_override:
               image_pull_policy: Always
               environment:
-                ######### TODO #####
-                # 1- Some confs to be externalized into spark-defaults package
+                # Platform defaults every notebook job inherits. A job overrides
+                # them in its own SparkSession builder.
                 PYSPARK_SUBMIT_ARGS: >-
                   --master k8s://https://kubernetes.default.svc.cluster.local
                   --conf spark.submit.deployMode=client
@@ -557,6 +557,9 @@ modules:
                   --conf "spark.driver.extraJavaOptions=-Djavax.net.ssl.trustStore=/cacerts/bundle.p12 -Djavax.net.ssl.trustStoreType=PKCS12 -Djavax.net.ssl.trustStorePassword="
                   --conf "spark.executor.extraJavaOptions=-Djavax.net.ssl.trustStore=/cacerts/bundle.p12 -Djavax.net.ssl.trustStoreType=PKCS12 -Djavax.net.ssl.trustStorePassword="
                   --conf spark.kubernetes.namespace={{ $namespace }}
+                  --conf spark.eventLog.compress=true
+                  --conf spark.eventLog.rolling.enabled=true
+                  --conf spark.network.timeout=600
                   {{ range $key := $sparkDefaultKeys }}
                   --conf {{ printf "%s=%s" $key ((printf "%v" (index $sparkDefaults $key))
                     | replace "{{ .Release.namespace }}" $namespace
