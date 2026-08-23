@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: okdp-control-plane-server
-tag: 0.7.0-p01
+tag: 0.7.1-p01
 protected: false
 description: |
   OKDP Server - API backend for the Open Kubernetes Data Platform
@@ -29,7 +29,7 @@ schema:
   parameters:
     properties:
       imageRepository: { type: string, default: "quay.io/okdp/images/okdp-control-plane-server", description: "Server image repository." }
-      imageTag: { type: string, default: "0.7.0", description: "Server image tag. Set explicitly so the deployed image is pinned rather than following the chart appVersion." }
+      imageTag: { type: string, default: "0.7.1", description: "Server image tag. Set explicitly so the deployed image is pinned rather than following the chart appVersion." }
       consoleHost: { type: string, description: "Console host, used verbatim as the single allowed origin. Defaults to okdp-ui.<ingress suffix>." }
       kubocdNamespace: { type: string, default: "kubocd-system" }
       logLevel: { type: string, default: "info", enum: [debug, info, warn, error] }
@@ -48,7 +48,7 @@ modules:
     source:
       oci:
         repository: quay.io/okdp/charts/okdp-control-plane-server
-        tag: 0.7.0
+        tag: 0.7.1
     values: |
       {{- $domain := printf "%v" .Context.ingress.suffix -}}
       {{- $console := .Parameters.consoleHost | default (printf "okdp-ui.%s" $domain) -}}
