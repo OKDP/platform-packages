@@ -5,7 +5,7 @@ name: airflow
 tag: 3.2.1-p06
 protected: false
 description: |
-  Apache Airflow 2.9.3 - Workflow orchestration platform with Spark Operator integration
+  Apache Airflow 3.2.1 - Workflow orchestration platform with Spark Operator integration
 
 usage:
   text: |
