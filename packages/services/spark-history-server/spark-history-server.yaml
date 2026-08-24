@@ -87,10 +87,9 @@ modules:
 
       {{- $storageApiUrl := .Parameters.storage.internalUrl | default .Parameters.storage.apiUrl -}}
 
-      {{- $historyEndpointUrl := printf "https://spark-history-%s.%s" $namespace $domain -}}
-      {{- $historyEndpointHost := printf "spark-history-%s.%s" $namespace $domain -}}
+      {{- $webProxyEndpointUrl := printf "https://%s-%s.%s" "spark-web-proxy" $namespace $domain -}}
 
-      {{- $historyRedirectUri := $historyEndpointUrl -}}
+      {{- $historyRedirectUri := $webProxyEndpointUrl -}}
 
       image:
         repository: quay.io/okdp/spark
@@ -105,22 +104,6 @@ modules:
           cpu: "250m"
           memory: "512Mi"
 
-      ingress:
-        enabled: true
-        ingressClassName: {{ .Context.ingress.className }}
-        annotations:
-          nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-          cert-manager.io/cluster-issuer: {{ .Context.certificateIssuers.selfSigned.name }}
-        hosts:
-          - host: {{ $historyEndpointHost }}
-            paths:
-              - path: /
-                pathType: Prefix
-        tls:
-          - hosts:
-              - {{ $historyEndpointHost }}
-            secretName: {{ .Release.metadata.name }}-tls
-
       # The web proxy addresses the history server as <release>-main, so the chart
       # must not append its own name to it.
       fullnameOverride: {{ .Release.metadata.name }}-main
@@ -134,7 +117,7 @@ modules:
       {{- if $oidcEnabled }}
         spark.ui.filters: io.okdp.spark.authc.OidcAuthFilter
         spark.io.okdp.spark.authc.OidcAuthFilter.param.issuer-uri: {{ $oidcIssuerUri }}
-        spark.io.okdp.spark.authc.OidcAuthFilter.param.redirect-uri: {{ $historyRedirectUri }}
+        spark.io.okdp.spark.authc.OidcAuthFilter.param.redirect-uri: {{ $historyRedirectUri }}/home
         spark.io.okdp.spark.authc.OidcAuthFilter.param.scope: {{ printf "%s offline_access" (.Context.oidc.scope | default "openid profile email groups") | replace " " "+" }}
         spark.io.okdp.spark.authc.OidcAuthFilter.param.cookie-max-age-minutes: 480
         spark.io.okdp.spark.authc.OidcAuthFilter.param.cookie-cipher-secret-key: FC5E81345CED0E256DC42E410362FF6E
