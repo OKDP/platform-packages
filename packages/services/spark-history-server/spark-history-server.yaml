@@ -90,8 +90,6 @@ modules:
       {{- $historyEndpointUrl := printf "https://spark-history-%s.%s" $namespace $domain -}}
       {{- $historyEndpointHost := printf "spark-history-%s.%s" $namespace $domain -}}
 
-      {{- $webProxyEndpointUrl := printf "https://%s-%s.%s" "spark-web-proxy" $namespace $domain -}}
-
       {{- $historyRedirectUri := $historyEndpointUrl -}}
 
       image:
