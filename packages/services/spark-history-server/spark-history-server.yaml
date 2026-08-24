@@ -18,7 +18,7 @@
 # name this instance's own identities.
 apiVersion: v1alpha1
 name: spark-history-server
-tag: 3.5.1-p07
+tag: 3.5.1-p08
 protected: false
 description: |
   Spark History Server - Monitoring and debugging interface for Apache Spark applications.
@@ -92,7 +92,7 @@ modules:
 
       {{- $webProxyEndpointUrl := printf "https://%s-%s.%s" "spark-web-proxy" $namespace $domain -}}
 
-      {{- $historyRedirectUri := $webProxyEndpointUrl -}}
+      {{- $historyRedirectUri := $historyEndpointUrl -}}
 
       image:
         repository: quay.io/okdp/spark
@@ -136,7 +136,7 @@ modules:
       {{- if $oidcEnabled }}
         spark.ui.filters: io.okdp.spark.authc.OidcAuthFilter
         spark.io.okdp.spark.authc.OidcAuthFilter.param.issuer-uri: {{ $oidcIssuerUri }}
-        spark.io.okdp.spark.authc.OidcAuthFilter.param.redirect-uri: {{ $historyRedirectUri }}/home
+        spark.io.okdp.spark.authc.OidcAuthFilter.param.redirect-uri: {{ $historyRedirectUri }}
         spark.io.okdp.spark.authc.OidcAuthFilter.param.scope: {{ printf "%s offline_access" (.Context.oidc.scope | default "openid profile email groups") | replace " " "+" }}
         spark.io.okdp.spark.authc.OidcAuthFilter.param.cookie-max-age-minutes: 480
         spark.io.okdp.spark.authc.OidcAuthFilter.param.cookie-cipher-secret-key: FC5E81345CED0E256DC42E410362FF6E
