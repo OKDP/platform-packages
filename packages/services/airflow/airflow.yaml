@@ -130,7 +130,9 @@ modules:
       {{- $airflowGitSync := .Parameters.dagsGitSync | default dict }}
       {{- $airflowGitSyncValues := omit $airflowGitSync "credentialsSecret" }}
       {{- /* git-sync v4 lets the deprecated GIT_SYNC_BRANCH, fed by the chart default, override GITSYNC_REF. */ -}}
-      {{- if and $airflowGitSyncValues.ref (not $airflowGitSyncValues.branch) }}{{- $_ := set $airflowGitSyncValues "branch" $airflowGitSyncValues.ref }}{{- end }}
+      {{- if and $airflowGitSyncValues.ref (not $airflowGitSyncValues.branch) }}
+      {{- $_ := set $airflowGitSyncValues "branch" $airflowGitSyncValues.ref }}
+      {{- end }}
       {{- $airflowOidcEnabled := true }}
       {{- if hasKey .Context.oidc "enabled" }}{{- $airflowOidcEnabled = .Context.oidc.enabled }}{{ end }}
       {{- $airflowOidcScope := printf "%s offline_access" (.Context.oidc.scope | default "openid profile email groups") | replace " " "+" }}
