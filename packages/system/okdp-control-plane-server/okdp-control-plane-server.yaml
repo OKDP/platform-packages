@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: okdp-control-plane-server
-tag: 0.7.1-p01
+tag: 0.7.1-p02
 protected: false
 description: |
   OKDP Server - API backend for the Open Kubernetes Data Platform
@@ -42,6 +42,11 @@ schema:
         required: true
         properties:
           suffix: { type: string, required: true }
+      proxy:
+        properties:
+          httpProxy: { type: string, default: "" }
+          httpsProxy: { type: string, default: "" }
+          noProxy: { type: string, default: "" }
 modules:
   - name: main
     timeout: 10m
@@ -56,6 +61,11 @@ modules:
       image:
         repository: {{ .Parameters.imageRepository | quote }}
         tag: {{ .Parameters.imageTag | quote }}
+
+      proxy:
+        httpProxy: {{ .Context.proxy.httpProxy | quote }}
+        httpsProxy: {{ .Context.proxy.httpsProxy | quote }}
+        noProxy: {{ .Context.proxy.noProxy | quote }}
 
       configuration:
         platformNamespace: {{ .Release.spec.targetNamespace | quote }}
