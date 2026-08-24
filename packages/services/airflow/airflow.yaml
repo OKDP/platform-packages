@@ -2,7 +2,7 @@
 # the connection string from the Secret named by metadataSecret.
 apiVersion: v1alpha1
 name: airflow
-tag: 3.2.1-p04
+tag: 3.2.1-p06
 protected: false
 description: |
   Apache Airflow 2.9.3 - Workflow orchestration platform with Spark Operator integration
@@ -259,6 +259,9 @@ modules:
 
       triggerer:
         enabled: true
+        # The default 20s probe times out on small nodes and kills a healthy triggerer.
+        livenessProbe:
+          timeoutSeconds: 60
         resources:
           requests:
             memory: "128Mi"
