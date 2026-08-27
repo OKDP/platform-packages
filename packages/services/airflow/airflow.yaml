@@ -129,6 +129,13 @@ modules:
       {{- $airflowHost := printf "airflow-%s.%s" $namespace $domain -}}
       {{- $airflowGitSync := .Parameters.dagsGitSync | default dict }}
       {{- $airflowGitSyncValues := omit $airflowGitSync "credentialsSecret" }}
+      {{- /* git-sync v4 lets the deprecated GIT_SYNC_BRANCH, fed by the chart
+             default, override GITSYNC_REF. Mirroring ref onto branch keeps the
+             modern key in charge. Done even when the caller set both, since
+             leaving them to disagree silently serves the wrong revision. */ -}}
+      {{- if $airflowGitSyncValues.ref }}
+      {{- $_ := set $airflowGitSyncValues "branch" $airflowGitSyncValues.ref }}
+      {{- end }}
       {{- $airflowOidcEnabled := true }}
       {{- if hasKey .Context.oidc "enabled" }}{{- $airflowOidcEnabled = .Context.oidc.enabled }}{{ end }}
       {{- $airflowOidcScope := printf "%s offline_access" (.Context.oidc.scope | default "openid profile email groups") | replace " " "+" }}
