@@ -2,7 +2,7 @@
 # the connection string from the Secret named by metadataSecret.
 apiVersion: v1alpha1
 name: airflow
-tag: 3.2.1-p06
+tag: 3.2.1-p07
 protected: false
 description: |
   Apache Airflow 3.2.1 - Workflow orchestration platform with Spark Operator integration
@@ -55,6 +55,8 @@ schema:
       webserverMemoryGi: { type: number, default: 1, multipleOf: 0.25, title: "Sizing | Webserver memory (GiB) | | order:2 columns:2 advanced:true" }
       oidcRoleMapping: { type: object, properties: {}, additionalProperties: true, title: "Authentication | Role mapping | | order:4 advanced:true", description: "Map of OIDC groups to lists of Airflow roles." }
       dagsGitSync: { type: object, properties: {}, additionalProperties: true, title: "DAGs | Git sync | | order:1", description: "Chart dags.gitSync values, credentialsSecret.name carries the git credentials Secret name." }
+      storage: { type: connectionRef, contract: s3, required: true, title: "Storage | Object store | | order:5", description: "Connection to the S3-compatible object store the DAGs read and write." }
+      s3SecretRef: { type: string, required: true, title: "Storage | S3 credentials secret | | order:6", description: "Secret with keys accessKey and secretKey granting the DAGs access to the object store." }
 
 modules:
   # Registers the OIDC client through anonymous Dynamic Client Registration.
@@ -179,6 +181,20 @@ modules:
         - name: AIRFLOW_OIDC_SCOPE
           value: {{ $airflowOidcScope | quote }}
       {{- end }}
+        - name: AWS_ENDPOINT_URL_S3
+          value: {{ .Parameters.storage.internalUrl | quote }}
+        - name: AWS_REGION
+          value: {{ .Parameters.storage.region | quote }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Parameters.s3SecretRef | quote }}
+              key: accessKey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Parameters.s3SecretRef | quote }}
+              key: secretKey
         - name: INSECURE_VERIFY_TLS
           value: {{ if .Context.oidc.insecureSkipVerify }}"false"{{ else }}"true"{{ end }}
         - name: REQUESTS_CA_BUNDLE
@@ -390,3 +406,4 @@ dependencies:
   - external-secrets
   - database-server
   - ingress
+  - storage
