@@ -19,7 +19,7 @@
 
 apiVersion: v1alpha1
 name: superset
-tag: 6.0.0-p04
+tag: 6.0.0-p05
 protected: false
 description: |
   Apache Superset - Enterprise business intelligence platform for modern data teams.
@@ -36,6 +36,11 @@ schema:
       cpu: { type: number, default: 0.5, multipleOf: 0.25, title: "Sizing | CPU (vCPU) | | order:1 columns:2 advanced:true" }
       memoryGi: { type: number, default: 2, multipleOf: 0.25, title: "Sizing | Memory (GiB) | | order:2 columns:2 advanced:true" }
       workers: { type: integer, default: 2, title: "Sizing | Server workers | stepper | order:3 advanced:true" }
+      # Chart number and date formats. Any CLDR locale works, the tables come from Babel
+      locale: { type: string, default: "en", title: "Cluster | Chart locale | | order:4 advanced:true", description: "CLDR locale used by charts to render numbers and dates, for instance en, fr, fr-CH or es. The UI language is not affected." }
+      currency: { type: string, default: "", title: "Cluster | Chart currency | | order:5 advanced:true", description: "ISO 4217 code, for instance EUR. Defaults to the currency of the locale territory when the locale carries one." }
+      d3Format: { type: object, properties: {}, additionalProperties: true, title: "Cluster | Number format overrides | | order:6 advanced:true", description: "d3-format locale definition, applied over the one derived from locale. See https://github.com/d3/d3-format#formatLocale" }
+      d3TimeFormat: { type: object, properties: {}, additionalProperties: true, title: "Cluster | Date format overrides | | order:7 advanced:true", description: "d3-time-format locale definition, applied over the one derived from locale. See https://github.com/d3/d3-time-format#timeFormatLocale" }
       # Superset metadata database
       metadataDb: { type: connectionRef, contract: database-server, required: true, title: "Cluster | Metadata database | | order:1" }
       # Database hosting the superset examples (used when load_examples is true)
@@ -123,6 +128,9 @@ modules:
 
       {{- $supersetHost := printf "superset-%s.%s" $namespace $domain -}}
 
+      {{- $d3FormatOverrides := .Parameters.d3Format | default dict -}}
+      {{- $d3TimeFormatOverrides := .Parameters.d3TimeFormat | default dict -}}
+
       okdp:
         # Superset configuration
         superset:
@@ -140,6 +148,87 @@ modules:
               "x_port": 1,
               "x_prefix": 1,
             }
+            # Chart number and date formats. The locale tables are read from CLDR through
+            # Babel, a Superset dependency, so that none has to be maintained in this package
+            import json
+
+            D3_LOCALE = {{ .Parameters.locale | default "" | quote }}
+            D3_CURRENCY = {{ .Parameters.currency | default "" | quote }}
+            D3_FORMAT = {}
+            D3_TIME_FORMAT = {}
+
+            if D3_LOCALE:
+                import logging
+                import re
+                from babel import Locale
+                from babel.numbers import get_currency_symbol, get_territory_currencies
+
+                # CLDR short patterns carry a two digit year, unreadable on a chart axis
+                _LDML_TO_STRFTIME = [
+                    ("yyyy", "%Y"), ("yy", "%Y"), ("y", "%Y"), ("MMMM", "%B"), ("MMM", "%b"),
+                    ("MM", "%m"), ("M", "%-m"), ("dd", "%d"), ("d", "%-d"), ("EEEE", "%A"),
+                    ("EEE", "%a"), ("HH", "%H"), ("H", "%-H"), ("hh", "%I"), ("h", "%-I"),
+                    ("mm", "%M"), ("ss", "%S"), ("a", "%p"),
+                ]
+
+                def _strftime(pattern):
+                    out, index = "", 0
+                    while index < len(pattern):
+                        for ldml, directive in _LDML_TO_STRFTIME:
+                            if pattern.startswith(ldml, index):
+                                out, index = out + directive, index + len(ldml)
+                                break
+                        else:
+                            out, index = out + pattern[index], index + 1
+                    return out
+
+                try:
+                    _locale = Locale.parse(D3_LOCALE, sep="-")
+                    _symbols = _locale.number_symbols["latn"]
+                    D3_FORMAT = {
+                        "decimal": _symbols["decimal"],
+                        "thousands": _symbols["group"],
+                        "grouping": [3],
+                    }
+                    _currency = D3_CURRENCY or (
+                        get_territory_currencies(_locale.territory)[0] if _locale.territory else ""
+                    )
+                    if _currency:
+                        _symbol = get_currency_symbol(_currency, locale=_locale)
+                        _affixes = re.split(
+                            r"[#0][#0,.]*", _locale.currency_formats["standard"].pattern
+                        )
+                        D3_FORMAT["currency"] = [
+                            _affixes[0].replace("\u00a4", _symbol),
+                            _affixes[-1].replace("\u00a4", _symbol),
+                        ]
+                    # d3 has no spacing rule of its own, the percent sign carries it
+                    _spacing = re.search(r"0(\D*?)%", _locale.percent_formats[None].pattern)
+                    if _spacing and _spacing.group(1):
+                        D3_FORMAT["percent"] = _spacing.group(1) + "%"
+                    _date = _strftime(_locale.date_formats["short"].pattern)
+                    _time = _strftime(_locale.time_formats["medium"].pattern)
+                    _periods = _locale.day_periods["format"]["wide"]
+                    _days, _months = _locale.days["format"], _locale.months["format"]
+                    D3_TIME_FORMAT = {
+                        "dateTime": "%s, %s" % (_date, _time),
+                        "date": _date,
+                        "time": _time,
+                        "periods": [_periods.get("am", "AM"), _periods.get("pm", "PM")],
+                        "days": [_days["wide"][(i + 6) % 7] for i in range(7)],
+                        "shortDays": [_days["abbreviated"][(i + 6) % 7] for i in range(7)],
+                        "months": [_months["wide"][i] for i in range(1, 13)],
+                        "shortMonths": [_months["abbreviated"][i] for i in range(1, 13)],
+                    }
+                except Exception:
+                    # A formatting detail must never keep the instance from starting
+                    logging.getLogger(__name__).exception(
+                        "Falling back to the default formats, unusable locale %s", D3_LOCALE
+                    )
+                    D3_FORMAT, D3_TIME_FORMAT = {}, {}
+
+            D3_FORMAT.update(json.loads(r'''{{ $d3FormatOverrides | toJson }}'''))
+            D3_TIME_FORMAT.update(json.loads(r'''{{ $d3TimeFormatOverrides | toJson }}'''))
           feature_flags: &feature_flags |
             # https://github.com/apache/superset/blob/master/RESOURCES/FEATURE_FLAGS.md
             FEATURE_FLAGS = {
