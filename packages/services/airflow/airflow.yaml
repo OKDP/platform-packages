@@ -2,7 +2,7 @@
 # the connection string from the Secret named by metadataSecret.
 apiVersion: v1alpha1
 name: airflow
-tag: 3.2.1-p07
+tag: 3.2.1-p08
 protected: false
 description: |
   Apache Airflow 3.2.1 - Workflow orchestration platform with Spark Operator integration
@@ -54,9 +54,12 @@ schema:
       schedulerMemoryGi: { type: number, default: 1, multipleOf: 0.25, title: "Sizing | Scheduler memory (GiB) | | order:1 columns:2 advanced:true" }
       webserverMemoryGi: { type: number, default: 1, multipleOf: 0.25, title: "Sizing | Webserver memory (GiB) | | order:2 columns:2 advanced:true" }
       oidcRoleMapping: { type: object, properties: {}, additionalProperties: true, title: "Authentication | Role mapping | | order:4 advanced:true", description: "Map of OIDC groups to lists of Airflow roles." }
-      dagsGitSync: { type: object, properties: {}, additionalProperties: true, title: "DAGs | Git sync | | order:1", description: "Chart dags.gitSync values, credentialsSecret.name carries the git credentials Secret name." }
-      storage: { type: connectionRef, contract: s3, required: true, title: "Storage | Object store | | order:5", description: "Connection to the S3-compatible object store the DAGs read and write." }
-      s3SecretRef: { type: string, required: true, title: "Storage | S3 credentials secret | | order:6", description: "Secret with keys accessKey and secretKey granting the DAGs access to the object store." }
+      # Free-form key/value map: the keys are not frozen, so any git-sync value
+      # can be set (enabled, repo, branch, ref, depth, subPath, period,
+      # credentialsSecret.name). The 'key-value-scalar' widget types each value
+      # by its syntax: unquoted true/false is a boolean, an unquoted number is
+      # an int/float, and quotes force a string.
+      dagsGitSync: { type: object, properties: {}, additionalProperties: true, title: "DAGs | Git sync | key-value-scalar | order:1", description: "Chart dags.gitSync values. Unquoted true/false is a boolean, an unquoted number is an int/float, quote to force a string. credentialsSecret.name carries the git credentials Secret name." }
 
 modules:
   # Registers the OIDC client through anonymous Dynamic Client Registration.
