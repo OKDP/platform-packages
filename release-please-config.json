@@ -1,20 +1,207 @@
 {
-  "extra-files": [
-    "README.md"
-  ],
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": false,
+  "include-v-in-tag": true,
   "draft-pull-request": true,
   "packages": {
-    ".": {
-      "initial-version": "0.3.0",
-      "changelog-path": "CHANGELOG.md",
+    "packages/services/airflow": {
+      "component": "airflow",
       "release-type": "simple",
-      "changelog-type": "default",
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false,
-      "draft": false,
-      "prerelease": false,
-      "skip-snapshot": false
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "airflow.yaml"
+        }
+      ]
+    },
+    "packages/services/hive-metastore": {
+      "component": "hive-metastore",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "hive-metastore.yaml"
+        }
+      ]
+    },
+    "packages/services/jupyterhub": {
+      "component": "jupyterhub",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "jupyterhub.yaml"
+        }
+      ]
+    },
+    "packages/services/okdp-examples": {
+      "component": "okdp-examples",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "okdp-examples.yaml"
+        }
+      ]
+    },
+    "packages/services/polaris": {
+      "component": "polaris",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "polaris.yaml"
+        }
+      ]
+    },
+    "packages/services/spark-defaults": {
+      "component": "spark-defaults",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "spark-defaults.yaml"
+        }
+      ]
+    },
+    "packages/services/spark-history-server": {
+      "component": "spark-history-server",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "spark-history-server.yaml"
+        }
+      ]
+    },
+    "packages/services/spark-operator": {
+      "component": "spark-operator",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "spark-operator.yaml"
+        }
+      ]
+    },
+    "packages/services/spark-rbac": {
+      "component": "spark-rbac",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "spark-rbac.yaml"
+        }
+      ]
+    },
+    "packages/services/superset": {
+      "component": "superset",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "superset.yaml"
+        }
+      ]
+    },
+    "packages/services/trino": {
+      "component": "trino",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "trino.yaml"
+        }
+      ]
+    },
+    "packages/system/okdp-control-plane-server": {
+      "component": "okdp-control-plane-server",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "okdp-control-plane-server.yaml"
+        }
+      ]
+    },
+    "packages/system/okdp-control-plane-ui": {
+      "component": "okdp-control-plane-ui",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "okdp-control-plane-ui.yaml"
+        }
+      ]
     }
   },
-  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
+  "changelog-sections": [
+    {
+      "type": "feat",
+      "section": "Features"
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes"
+    },
+    {
+      "type": "docs",
+      "section": "Documentation",
+      "hidden": false
+    },
+    {
+      "type": "refactor",
+      "section": "Refactoring",
+      "hidden": false
+    },
+    {
+      "type": "test",
+      "section": "Tests",
+      "hidden": true
+    },
+    {
+      "type": "ci",
+      "section": "Continuous Integration",
+      "hidden": true
+    }
+  ]
 }

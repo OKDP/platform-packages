@@ -18,7 +18,7 @@
 # Connection (output metastore).
 apiVersion: v1alpha1
 name: hive-metastore
-tag: 4.0.1-p02
+tag: 1.0.0 # x-release-please-version
 protected: false
 description: |
   Hive Metastore is a centralized metadata repository for data lakes and big data analytics.

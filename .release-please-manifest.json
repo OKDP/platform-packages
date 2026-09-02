@@ -1,1 +1,15 @@
-{}
+{
+  "packages/services/airflow": "1.0.0",
+  "packages/services/hive-metastore": "1.0.0",
+  "packages/services/jupyterhub": "1.0.0",
+  "packages/services/okdp-examples": "1.0.0",
+  "packages/services/polaris": "1.0.0",
+  "packages/services/spark-defaults": "1.0.0",
+  "packages/services/spark-history-server": "1.0.0",
+  "packages/services/spark-operator": "1.0.0",
+  "packages/services/spark-rbac": "1.0.0",
+  "packages/services/superset": "1.0.0",
+  "packages/services/trino": "1.0.0",
+  "packages/system/okdp-control-plane-server": "1.0.0",
+  "packages/system/okdp-control-plane-ui": "1.0.0"
+}

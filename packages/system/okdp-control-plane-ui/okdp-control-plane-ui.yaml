@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: okdp-control-plane-ui
-tag: 0.7.0-p01
+tag: 1.0.0 # x-release-please-version
 protected: false
 description: |
   OKDP UI - Frontend web interface for the Open Kubernetes Data Platform

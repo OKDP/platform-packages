@@ -57,24 +57,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The publish job skips a tag that already exists, so a package edited without
-  # a tag bump is silently never published. Catch it at review time.
-  # INTERIM: delete this job when release-please owns the tag (Phase 2).
-  tag-must-move:
+  shared-charts:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.body, '[no-publish]')
+    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: A changed package must bump its tag
+      - name: A shared chart must move with its consumers
         run: |
           set -uo pipefail
           git fetch -q --depth=1 origin "${{ github.base_ref }}"
           mapfile -t CHANGED < <(git diff --name-only FETCH_HEAD...HEAD)
-          bash .github/scripts/tag-must-move.sh FETCH_HEAD "${CHANGED[@]:-}"
+          printf 'changed: %s\n' "${CHANGED[@]:-<none>}"
+          bash .github/scripts/shared-chart-consumers.sh "${CHANGED[@]:-}"
+
   get-package-oci-prefix:
     runs-on: ubuntu-latest
     outputs:

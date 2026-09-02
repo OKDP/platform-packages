@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: okdp-examples
-tag: 1.3.0-p08
+tag: 1.0.0 # x-release-please-version
 protected: false
 description: |
   A collection of hands-on examples, helper utilities, Jupyter notebooks, 
