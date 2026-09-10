@@ -1,9 +1,15 @@
 # The secrets to generate. Each entry becomes one StringSecret, and the
 # generator fills the fields it does not already find. An existing Secret is
 # left untouched, so a value put in place by hand survives.
+# The optional data map carries fixed values, written as-is next to the
+# generated fields. keep: true leaves the StringSecret, and the Secret it
+# owns, in place when the release is uninstalled.
 #
 # secrets:
 #   - name: creds-myrelease-internal
+#     keep: true
+#     data:
+#       username: admin
 #     fields:
 #       - fieldName: shared-secret
 #         encoding: base64
