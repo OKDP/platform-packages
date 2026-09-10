@@ -18,7 +18,7 @@
 # iceberg-catalog Connection (output catalog).
 apiVersion: v1alpha1
 name: polaris
-tag: 1.3.0-incubating-p07
+tag: 1.3.0-incubating-p08
 protected: false
 description: |
   Apache Polaris is an open-source, fully-featured catalog for Apache Iceberg™.
@@ -26,6 +26,7 @@ usage:
   text: |
     Apache Polaris is an open-source, fully-featured catalog for Apache Iceberg™.
     Access the UI at https://polaris-console-{{ .Release.spec.targetNamespace }}.{{ .Context.ingress.suffix }}
+    Realm {{ .Parameters.realm }}, root credentials in Secret creds-{{ .Release.metadata.name }}-root (keys client_id and client_secret)
 schema:
   parameters:
     properties:
@@ -33,16 +34,15 @@ schema:
       db: { title: "Catalog | Metadata database | | order:1", type: connectionRef, contract: database-server, required: true, description: "Connection to the PostgreSQL server hosting the Polaris metastore database." }
       storage: { title: "Storage | Object store | | order:1", type: connectionRef, contract: s3, required: true, description: "Connection to the S3-compatible object store backing the catalogs." }
       s3SecretRef: { title: "Storage | S3 credentials secret | | order:2", type: string, required: true, description: "Secret with keys accessKey/secretKey, this consumer's own S3 identity (STS and catalog-side Iceberg metadata operations)." }
-      realms:
-        title: "Catalog | Realms | | order:3"
+      realm: { title: "Catalog | Realm | | order:3", type: string, default: "default", description: "Polaris realm served by this instance. Clients select it with the Polaris-Realm header, and the catalog Connection publishes it." }
+      principals:
+        title: "Catalog | Principals | yaml | order:4 advanced:true"
         type: array
-        required: true
-        minItems: 1
-        description: "Realm definitions passed to the bootstrap, main and principals modules. The first one is the default realm, published on the catalog Connection and preselected in the console."
+        description: "Polaris principals to create in the realm, with their principal roles, one entry per principal, for example [{\"name\": \"alice\", \"roles\": [\"catalog_admin\"]}]. Humans and service accounts authenticate through the platform identity provider and get the roles granted here."
         items:
           properties:
             name: { type: string, required: true }
-          additionalProperties: true
+            roles: { type: array, items: { type: string } }
   context:
     properties:
       oidc:
@@ -62,7 +62,26 @@ schema:
           suffix: { type: string, required: true }
           className: { type: string, required: true }
 modules:
+  # Root credentials of the realm. Kept when the Release goes away, the
+  # bootstrapped realm lives on in the database with these credentials.
+  - name: internal-secrets
+    source:
+      local:
+        path: ../../../charts/internal-secrets
+    values: |
+      secrets:
+        - name: "creds-{{ .Release.metadata.name }}-root"
+          keep: true
+          data:
+            client_id: root
+          fields:
+            - fieldName: client_secret
+              encoding: base64
+              length: "32"
+
   - name: bootstrap
+    dependsOn:
+      - internal-secrets
     timeout: 10m
     source:
       oci:
@@ -88,7 +107,15 @@ modules:
             passwordKey: password
 
       realms:
-        {{- toYaml .Parameters.realms | nindent 2 }}
+        - name: {{ .Parameters.realm | quote }}
+          rootPrincipal:
+            name: root
+            credentialsSecret:
+              name: {{ printf "creds-%s-root" .Release.metadata.name | quote }}
+              clientIdKey: client_id
+              clientSecretKey: client_secret
+          principals:
+            {{- toYaml (.Parameters.principals | default list) | nindent 12 }}
 
   - name: main
     dependsOn:
@@ -191,9 +218,7 @@ modules:
       realmContext:
         type: default
         realms:
-        {{- range .Parameters.realms }}
-          - {{ .name }}
-        {{- end }}
+          - {{ .Parameters.realm | quote }}
 
       advancedConfig:
         polaris.realm-context.header-name: "Polaris-Realm"
@@ -317,7 +342,15 @@ modules:
         caCertPath: ""
 
       realms:
-        {{- toYaml .Parameters.realms | nindent 2 }}
+        - name: {{ .Parameters.realm | quote }}
+          rootPrincipal:
+            name: root
+            credentialsSecret:
+              name: {{ printf "creds-%s-root" .Release.metadata.name | quote }}
+              clientIdKey: client_id
+              clientSecretKey: client_secret
+          principals:
+            {{- toYaml (.Parameters.principals | default list) | nindent 12 }}
 
   - name: console
     dependsOn:
@@ -346,7 +379,7 @@ modules:
 
       env:
         polarisApiUrl: "{{ $polarisEndpointAPIUrl }}"
-        polarisRealm: "{{ (index .Parameters.realms 0).name }}"
+        polarisRealm: "{{ .Parameters.realm }}"
         oauthTokenUrl: "{{ $polarisEndpointAPIUrl }}/api/catalog/v1/oauth/tokens"
 
       extraEnv:
@@ -377,7 +410,7 @@ outputs:
     values:
       uri: "https://polaris-{{ .Release.spec.targetNamespace }}.{{ .Context.ingress.suffix }}/api/catalog"
       internalUri: "http://{{ .Release.metadata.name }}-main.{{ .Release.spec.targetNamespace }}.svc.cluster.local:8181/api/catalog"
-      realm: "{{ if not .Parameters.realms }}{{ fail `realms must carry at least one entry` }}{{ end }}{{ (index .Parameters.realms 0).name }}"
+      realm: "{{ .Parameters.realm }}"
 roles:
   - data-catalog
   - iceberg-catalog
