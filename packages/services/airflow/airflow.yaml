@@ -266,7 +266,7 @@ modules:
                       "server_metadata_url": os.environ["AIRFLOW_OIDC_SERVER_METADATA_URL"],
                       "client_kwargs": {
                           "scope": os.environ.get("AIRFLOW_OIDC_SCOPE", "openid profile email").replace("+", " "),
-                          oauth_verify: oauth_verify,
+                          "verify": oauth_verify,
                       },
                   },
               },
