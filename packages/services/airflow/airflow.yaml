@@ -2,7 +2,7 @@
 # the connection string from the Secret named by metadataSecret.
 apiVersion: v1alpha1
 name: airflow
-tag: 3.2.1-p09
+tag: 3.2.1-1.0.0
 protected: false
 description: |
   Apache Airflow 3.2.1 - Workflow orchestration platform with Spark Operator integration
