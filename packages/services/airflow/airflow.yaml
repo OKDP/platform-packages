@@ -53,6 +53,7 @@ schema:
       # pins workers.replicas to 0 with no Redis.
       schedulerMemoryGi: { type: number, default: 1, multipleOf: 0.25, title: "Sizing | Scheduler memory (GiB) | | order:1 columns:2 advanced:true" }
       webserverMemoryGi: { type: number, default: 1, multipleOf: 0.25, title: "Sizing | Webserver memory (GiB) | | order:2 columns:2 advanced:true" }
+      dagProcessorMemoryGi: { type: number, default: 1, multipleOf: 0.25, title: "Sizing | DAG processor memory (GiB) | | order:3 columns:2 advanced:true" }
       oidcRoleMapping: { type: object, properties: {}, additionalProperties: true, title: "Authentication | Role mapping | | order:4 advanced:true", description: "Map of OIDC groups to lists of Airflow roles." }
       storage: { type: connectionRef, contract: s3, required: true, title: "Storage | Object store | | order:5", description: "Connection to the S3-compatible object store the DAGs read and write." }
       s3SecretRef: { type: string, required: true, title: "Storage | S3 credentials secret | | order:6", description: "Secret with keys accessKey and secretKey granting the DAGs access to the object store." }
@@ -346,6 +347,13 @@ modules:
 
       dagProcessor:
         enabled: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "{{ .Parameters.dagProcessorMemoryGi }}Gi"
+            cpu: "750m"
       flower:
         enabled: false
       pgbouncer:
