@@ -16,7 +16,7 @@
 
 apiVersion: v1alpha1
 name: okdp-control-plane-server
-tag: 0.8.0-p01
+tag: 0.8.0-1.0.0
 protected: false
 description: |
   OKDP Server - API backend for the Open Kubernetes Data Platform
