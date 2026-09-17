@@ -45,6 +45,14 @@ on:
         required: false
         type: string
         default: "skip"
+      package_paths:
+        description: >-
+          JSON array of package directories to process, as emitted by
+          release-please's paths_released output. Empty or "[]" means every
+          package under packages/.
+        required: false
+        type: string
+        default: ""
       runs-on:
         description: GitHub Actions Runner image
         required: true
@@ -118,9 +126,31 @@ jobs:
 
       # Build and push packages
       - name: Find KuboCD packages 🔎
+        env:
+          PACKAGE_PATHS: ${{ inputs.package_paths }}
         run: |
-          KUBOCD_PACKAGES=$(find packages -type f \( -name "*.yaml" -o -name "*.yml" \) -exec grep -l '^modules:' {} \; | tr '\n' ' ')
-          echo "KUBOCD_PACKAGES=$KUBOCD_PACKAGES" >> $GITHUB_ENV
+          set -uo pipefail
+
+          if [[ -n "${PACKAGE_PATHS}" && "${PACKAGE_PATHS}" != "[]" ]]; then
+            # A release published only some packages: resolve each released
+            # directory to the manifest it contains.
+            KUBOCD_PACKAGES=""
+            for dir in $(jq -r '.[]' <<<"${PACKAGE_PATHS}")
+            do
+              manifest=$(find "${dir}" -maxdepth 1 -type f \( -name "*.yaml" -o -name "*.yml" \) -exec grep -l '^modules:' {} \;)
+              if [[ -z "${manifest}" ]]; then
+                echo "::error title=No package manifest::${dir} was released but holds no manifest with 'modules:'"
+                exit 1
+              fi
+              KUBOCD_PACKAGES="${KUBOCD_PACKAGES} ${manifest}"
+            done
+            KUBOCD_PACKAGES="${KUBOCD_PACKAGES# }"
+          else
+            KUBOCD_PACKAGES=$(find packages -type f \( -name "*.yaml" -o -name "*.yml" \) -exec grep -l '^modules:' {} \; | tr '\n' ' ')
+          fi
+
+          echo "Processing: ${KUBOCD_PACKAGES}"
+          echo "KUBOCD_PACKAGES=${KUBOCD_PACKAGES}" >> $GITHUB_ENV
       
       # A published tag is immutable: the same reference must always resolve to
       # the same artifact. Anything already on the registry is dropped from the
@@ -173,6 +203,40 @@ jobs:
       - name: Nothing left to publish ✅
         if: inputs.publish_to_registry == 'true' && env.KUBOCD_PACKAGES == ''
         run: echo "Every package is already published under its current tag. Nothing to do."
+      
+      # The CI registry is a scratch area. Now that release-please owns the
+      # manifest tag, every run would otherwise build the same 1.0.0 artifact
+      # over the top of the last one, from any branch. Stamp a unique,
+      # obviously non-releasable version instead, so a specific build can be
+      # pinned and cannot change under whoever pinned it.
+      #
+      # This rewrites the runner's checkout only. Nothing is committed, and the
+      # release path to the public registry never runs this step.
+      - name: Stamp a CI version on each manifest 🏷️
+        if: inputs.publish_to_registry == 'false' && env.KUBOCD_PACKAGES != ''
+        run: |
+          set -uo pipefail
+
+          # SemVer pre-release identifiers allow only letters, digits and
+          # hyphens, so "chore/release-please" has to be flattened. Truncated
+          # to keep the tag well inside the 128-character OCI limit.
+          SLUG=$(echo "${GITHUB_REF_NAME}" \
+                 | tr -c 'a-zA-Z0-9-' '-' \
+                 | sed 's/-\{2,\}/-/g;s/^-//;s/-$//' \
+                 | cut -c1-30 | sed 's/-$//')
+
+          # The "g" is git-describe convention, and it also guarantees the
+          # identifier is never all-digits: a short sha such as "0123456" would
+          # otherwise be an invalid SemVer numeric identifier (leading zero).
+          CI_TAG="0.0.0-ci.${SLUG}.g${GITHUB_SHA::7}"
+
+          for package in ${KUBOCD_PACKAGES}
+          do
+            sed -i "s|^tag: .*|tag: ${CI_TAG}|" "${package}"
+          done
+
+          echo "CI tag: ${CI_TAG}"
+          echo "::notice title=CI package tag::${CI_TAG}"
 
       - name: Build and push KuboCD packages into CI registry (${{ inputs.ci_registry }}) 📦
         if: inputs.publish_to_registry == 'false' && env.KUBOCD_PACKAGES != ''
