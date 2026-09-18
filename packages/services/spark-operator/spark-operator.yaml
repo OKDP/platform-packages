@@ -1,6 +1,6 @@
 apiVersion: v1alpha1
 name: spark-operator
-tag: 2.4.0-1.0.0
+tag: 2.4.0-1.0.1
 protected: false
 description: |
   Spark Operator 2.4.0 - Kubernetes operator for managing Apache Spark applications
