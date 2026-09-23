@@ -94,7 +94,8 @@ modules:
         grant_types:
           - "authorization_code"
           - "client_credentials"
-        scope: {{ .Context.oidc.scope | quote }}
+        # openid is rejected by Keycloak here; offline_access must match the login scope below.
+        scope: {{ append (without (splitList " " (.Context.oidc.scope | default "openid profile email groups")) "openid") "offline_access" | join " " | quote }}
       tls:
         insecure: false
         certificate: "certs-bundle"
@@ -147,6 +148,7 @@ modules:
       {{- end }}
       {{- $airflowOidcEnabled := true }}
       {{- if hasKey .Context.oidc "enabled" }}{{- $airflowOidcEnabled = .Context.oidc.enabled }}{{ end }}
+      {{- /* offline_access here must stay registered by the oidc-dcr module above. */}}
       {{- $airflowOidcScope := printf "%s offline_access" (.Context.oidc.scope | default "openid profile email groups") | replace " " "+" }}
       {{- $airflowDCR := eq (.Context.oidc.clientProvisioning | default "existing") "dcr" }}
       {{- /* In dcr mode the registration job writes the credentials, under the same keys. */}}
