@@ -10,6 +10,6 @@
   "packages/services/spark-rbac": "1.0.1",
   "packages/services/superset": "1.1.0",
   "packages/services/trino": "1.0.1",
-  "packages/system/okdp-control-plane-server": "1.0.1",
-  "packages/system/okdp-control-plane-ui": "1.0.1"
+  "packages/system/okdp-control-plane-server": "1.1.0",
+  "packages/system/okdp-control-plane-ui": "1.1.0"
 }
