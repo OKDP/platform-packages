@@ -94,8 +94,12 @@ modules:
         grant_types:
           - "authorization_code"
           - "client_credentials"
-        # openid is rejected by Keycloak here; offline_access must match the login scope below.
-        scope: {{ append (without (splitList " " (.Context.oidc.scope | default "openid profile email groups")) "openid") "offline_access" | join " " | quote }}
+        # openid is rejected by Keycloak here. offline_access must match the login scope below.
+        {{- $scopes := list }}
+        {{- range splitList " " (.Context.oidc.scope | default "openid profile email groups") }}
+          {{- if ne . "openid" }}{{- $scopes = append $scopes . }}{{- end }}
+        {{- end }}
+        scope: {{ append $scopes "offline_access" | join " " | quote }}
       tls:
         insecure: false
         certificate: "certs-bundle"
