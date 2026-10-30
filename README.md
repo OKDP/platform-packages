@@ -1,6 +1,6 @@
 [![ci](https://github.com/okdp/platform-packages/actions/workflows/ci.yml/badge.svg)](https://github.com/okdp/platform-packages/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/okdp/platform-packages)](https://github.com/okdp/platform-packages/releases/latest)&ensp;&ensp;
-[![KuboCD](https://img.shields.io/badge/kubocd-v0.4.2-green.svg)](https://github.com/kubocd/kubocd)&ensp;&ensp;
+[![KuboCD](https://img.shields.io/badge/kubocd-v0.4.3-green.svg)](https://github.com/kubocd/kubocd)&ensp;&ensp;
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.28+-blue.svg)](https://kubernetes.io/)&ensp;&ensp;
 [![License Apache2](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
 <a href="https://okdp.io">
