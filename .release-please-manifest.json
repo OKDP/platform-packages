@@ -1,5 +1,5 @@
 {
-  "packages/services/airflow": "1.0.1",
+  "packages/services/airflow": "1.0.2",
   "packages/services/hive-metastore": "1.0.1",
   "packages/services/jupyterhub": "1.0.1",
   "packages/services/okdp-examples": "1.0.1",

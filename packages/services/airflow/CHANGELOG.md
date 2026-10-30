@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/OKDP/platform-packages/compare/airflow/v1.0.1...airflow/v1.0.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* **airflow:** build the DCR scope without the without function ([d9313f5](https://github.com/OKDP/platform-packages/commit/d9313f561d8358317e80c2b637a48730f7423036))
+
 ## [1.0.1](https://github.com/OKDP/platform-packages/compare/airflow/v1.0.0...airflow/v1.0.1) (2026-09-25)
 
 
