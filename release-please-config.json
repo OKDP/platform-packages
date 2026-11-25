@@ -32,6 +32,13 @@
       "tag-separator": "/",
       "changelog-path": "CHANGELOG.md"
     },
+    "packages/services/openmetadata": {
+      "component": "openmetadata",
+      "release-type": "simple",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "changelog-path": "CHANGELOG.md"
+    },
     "packages/services/polaris": {
       "component": "polaris",
       "release-type": "simple",

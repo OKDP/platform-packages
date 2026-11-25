@@ -1,0 +1,3 @@
+# Secret holding the key, and the key name inside it.
+secretName: ""
+key: "fernet-key"

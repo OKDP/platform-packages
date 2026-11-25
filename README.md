@@ -24,6 +24,7 @@ Packages are deployed through KuboCD **Releases** that reference layered **Conte
 
 ```
 charts/                 # Helm charts owned here, bundled into the packages that reference them
+├── fernet-key/
 ├── internal-secrets/
 └── oidc-client/
 packages/
@@ -35,6 +36,7 @@ packages/
     ├── hive-metastore/
     ├── jupyterhub/
     ├── okdp-examples/
+    ├── openmetadata/
     ├── polaris/
     ├── spark-defaults/
     ├── spark-history-server/

@@ -1,0 +1,395 @@
+#
+# Copyright 2026 The OKDP Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+
+
+# OpenMetadata, deployed once for the platform. Consumes a database-server
+# connection (PostgreSQL) for its metadata store, and runs its own OpenSearch.
+# Ingestion pipelines run as Kubernetes Jobs (pipeline client "k8s"): no
+# bundled Airflow, so no coupling with the platform Airflow version.
+
+apiVersion: v1alpha1
+name: openmetadata
+tag: 2.0.0-0.1.0
+protected: false
+description: |
+  OpenMetadata 2.0.0 - Data catalog: discovery, documentation, lineage, data quality and governance
+  of the platform data assets (Trino, Polaris, Superset, Airflow).
+usage:
+  text: |
+    OpenMetadata release has been applied successfully.
+    Pods, ingress, and certificate provisioning may still take a few minutes.
+
+    Access the OpenMetadata UI:
+      URL: https://openmetadata-{{ .Release.spec.targetNamespace }}.{{ .Context.ingress.suffix }}
+      Authenticate via the configured OIDC provider. Initial administrators: {{ .Parameters.adminPrincipals | join ", " }}
+    {{- if not .Parameters.jwtKeysSecret }}
+
+    WARNING: jwtKeysSecret is not set. Bot tokens are signed with the sample RSA keys shipped in the
+    OpenMetadata image, which are public. Set jwtKeysSecret before any real use.
+    {{- end }}
+schema:
+  context:
+    properties:
+      certificateIssuers:
+        required: true
+        properties:
+          selfSigned:
+            properties:
+              name: { type: string, required: true }
+      ingress:
+        required: true
+        properties:
+          suffix: { type: string, required: true }
+          className: { type: string, required: true }
+      oidc:
+        required: true
+        properties:
+          issuerUri: { type: string, required: true }
+          scope: { type: string, default: "openid profile email groups" }
+          # Who makes the OAuth client: existing (Secret creds-<release>-oauth2),
+          # dcr (Keycloak Dynamic Client Registration) or kubauth.
+          clientProvisioning: { type: string, default: existing }
+          kubauth:
+            properties:
+              namespace: { type: string }
+          # Read only when clientProvisioning is dcr.
+          dcr:
+            properties:
+              registrationUrl: { type: string }
+              authMethod: { type: string }
+  parameters:
+    properties:
+      db: { type: connectionRef, contract: database-server, required: true, title: "Cluster | Metadata database | | order:1", description: "Connection to the PostgreSQL server hosting the OpenMetadata database. Its secret carries the keys username and password." }
+      adminPrincipals: { type: array, items: { type: string }, required: true, title: "Authentication | Initial administrators | | order:1", description: "User names (preferred_username claim) granted the OpenMetadata Admin role at first start." }
+      principalDomain: { type: string, default: "okdp.local", title: "Authentication | Principal domain | | order:2 advanced:true", description: "Domain appended to bot and user names that carry none." }
+      enableSelfSignup: { type: boolean, default: false, title: "Authentication | Self signup | | order:3 advanced:true", description: "Create an OpenMetadata user at the first login of any authenticated user. Off by default: users are created by an administrator." }
+      jwtKeysSecret: { type: string, default: "", title: "Authentication | JWT keys secret | | order:4 advanced:true", description: "Secret with keys private_key.der (PKCS#8, DER) and public_key.der (X.509, DER) signing the bot and ingestion tokens. Empty: the sample keys of the image are used (not for real use)." }
+      serverMemoryGi: { type: number, default: 2, multipleOf: 0.25, title: "Sizing | Server memory (GiB) | | order:1 columns:2 advanced:true" }
+      searchMemoryGi: { type: number, default: 2, multipleOf: 0.25, title: "Sizing | Search memory (GiB) | | order:2 columns:2 advanced:true", description: "OpenSearch container memory limit. The JVM heap is set to half of it." }
+      searchStorageGi: { type: integer, default: 10, title: "Sizing | Search storage (GiB) | | order:3 columns:2 advanced:true" }
+      ingestionMemoryGi: { type: number, default: 2, multipleOf: 0.25, title: "Sizing | Ingestion job memory (GiB) | | order:4 columns:2 advanced:true", description: "Memory limit of each ingestion Job." }
+
+modules:
+  # Registers the OIDC client through anonymous Dynamic Client Registration.
+  # Active only when the platform provisions clients that way; the credentials
+  # land in a Secret carrying the same keys the deployment reads.
+  - name: oidc-dcr
+    enabled: '{{ eq (.Context.oidc.clientProvisioning | default "existing") "dcr" }}'
+    timeout: 10m
+    source:
+      oci:
+        repository: quay.io/adaltas/oidc-dcr
+        tag: 0.3.2
+    values: |
+      {{- $namespace := printf "%v" .Release.spec.targetNamespace -}}
+      {{- $release := printf "%v" .Release.metadata.name -}}
+      {{- $dcr := .Context.oidc.dcr | default dict -}}
+      {{- if and (eq (.Context.oidc.clientProvisioning | default "existing") "dcr") (ne ($dcr.authMethod | default "") "anonymous") }}
+      {{- fail (printf "oidc.dcr.authMethod %q is not supported: this package registers anonymously" ($dcr.authMethod | default "")) }}
+      {{- end }}
+
+      ttl_seconds: 30
+      registration_url: {{ $dcr.registrationUrl | quote }}
+      request:
+        application_type: web
+        client_name: "{{ $release }}-{{ $namespace }}"
+        redirect_uris:
+          - "https://openmetadata-{{ $namespace }}.{{ .Context.ingress.suffix }}/callback"
+        grant_types:
+          - "authorization_code"
+          - "refresh_token"
+        # openid is rejected by Keycloak at registration; it is requested at login.
+        scope: {{ without (splitList " " (.Context.oidc.scope | default "openid profile email groups")) "openid" | join " " | quote }}
+      tls:
+        insecure: false
+        certificate: "certs-bundle"
+      secret: "{{ $release }}-{{ $namespace }}-dcr"
+      mapping:
+        use_default: false
+        key_mapping:
+          client_id: ".client_id"
+          client_secret: ".client_secret"
+
+  # Active only when the platform says kubauth makes the clients.
+  - name: oidc-client
+    enabled: "{{ eq (.Context.oidc.clientProvisioning | default \"existing\") \"kubauth\" }}"
+    source:
+      local:
+        path: ../../../charts/oidc-client
+    values: |
+      {{- $client := printf "%s-%s" .Release.metadata.name .Release.spec.targetNamespace }}
+      # The clients live in one shared namespace, so the name carries the
+      # project namespace: two same-named Releases would share a client.
+      clientName: "{{ $client }}"
+      oidcNamespace: "{{ (.Context.oidc.kubauth | default dict).namespace }}"
+      credentialsSecretName: "{{ $client }}-oidc-creds"
+      redirectURIs:
+        - "https://openmetadata-{{ .Release.spec.targetNamespace }}.{{ .Context.ingress.suffix }}/callback"
+      displayName: "OpenMetadata ({{ .Release.metadata.name }})"
+      description: "OIDC client for OpenMetadata {{ .Release.metadata.name }} in {{ .Release.spec.targetNamespace }}"
+
+  # Encrypts the service credentials OpenMetadata stores in its database.
+  - name: fernet-key
+    source:
+      local:
+        path: ../../../charts/fernet-key
+    values: |
+      secretName: "creds-{{ .Release.metadata.name }}-fernet"
+
+  # Search engine of OpenMetadata, single node, reachable only inside the cluster.
+  - name: search
+    timeout: 10m
+    source:
+      helmRepository:
+        url: https://opensearch-project.github.io/helm-charts
+        chart: opensearch
+        version: 3.3.2
+    values: |
+      {{- $memMi := mulf .Parameters.searchMemoryGi 1024 | int -}}
+      fullnameOverride: {{ printf "%s-search" .Release.metadata.name }}
+      clusterName: {{ printf "%s-search" .Release.metadata.name }}
+      nodeGroup: ""
+      singleNode: true
+      replicas: 1
+      protocol: http
+      opensearchJavaOpts: "-Xmx{{ div $memMi 2 }}m -Xms{{ div $memMi 2 }}m"
+      config:
+        opensearch.yml: |
+          plugins.security.disabled: true
+          indices.query.bool.max_clause_count: 4096
+      persistence:
+        size: {{ printf "%vGi" .Parameters.searchStorageGi }}
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "{{ div $memMi 2 }}Mi"
+        limits:
+          cpu: "2000m"
+          memory: "{{ $memMi }}Mi"
+
+  - name: main
+    timeout: 15m
+    source:
+      helmRepository:
+        url: https://helm.open-metadata.org
+        chart: openmetadata
+        version: 2.0.0
+    values: |
+      {{- $namespace := printf "%v" .Release.spec.targetNamespace -}}
+      {{- $release := printf "%v" .Release.metadata.name -}}
+      {{- $host := printf "openmetadata-%s.%s" $namespace .Context.ingress.suffix -}}
+      {{- $issuer := .Context.oidc.issuerUri -}}
+      {{- $oauthSecret := printf "creds-%s-oauth2" $release -}}
+      {{- $provisioning := .Context.oidc.clientProvisioning | default "existing" -}}
+      {{- if eq $provisioning "dcr" }}{{- $oauthSecret = printf "%s-%s-dcr" $release $namespace }}{{- end }}
+      {{- if eq $provisioning "kubauth" }}{{- $oauthSecret = printf "%s-%s-oidc-creds" $release $namespace }}{{- end }}
+      {{- $truststore := "/truststore/cacerts" -}}
+
+      fullnameOverride: openmetadata
+
+      openmetadata:
+        config:
+          clusterName: {{ $release | quote }}
+          # Manual maintenance helpers of the chart; run them with openmetadata-ops.sh instead.
+          deployPipelinesConfig:
+            enabled: false
+          reindexConfig:
+            enabled: false
+
+          elasticsearch:
+            enabled: true
+            host: {{ printf "%s-search" $release | quote }}
+            searchType: opensearch
+            port: 9200
+            scheme: http
+
+          database:
+            enabled: true
+            host: {{ .Parameters.db.host | quote }}
+            port: {{ .Parameters.db.port }}
+            driverClass: org.postgresql.Driver
+            dbScheme: postgresql
+            databaseName: {{ .Parameters.db.dbName | quote }}
+            dbParams: {{ printf "sslmode=%s" (.Parameters.db.sslMode | default "prefer") | quote }}
+            auth:
+              # Overridden by DB_USER, read from the connection secret (see extraEnvs).
+              username: openmetadata
+              password:
+                secretRef: {{ .Parameters.db.secretRef | quote }}
+                secretKey: password
+
+          # Ingestion pipelines run as Kubernetes Jobs in this namespace.
+          pipelineServiceClientConfig:
+            enabled: true
+            type: k8s
+            metadataApiEndpoint: http://openmetadata:8585/api
+            k8s:
+              namespace: {{ $namespace | quote }}
+              ingestionImage: "docker.getcollate.io/openmetadata/ingestion-base:2.0.0"
+              serviceAccountName: openmetadata-ingestion
+              rbac:
+                enabled: true
+              resources:
+                requests:
+                  cpu: "250m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "2"
+                  memory: "{{ .Parameters.ingestionMemoryGi }}Gi"
+
+          authorizer:
+            enabled: true
+            initialAdmins: {{ .Parameters.adminPrincipals | toJson }}
+            principalDomain: {{ .Parameters.principalDomain | quote }}
+            allowedEmailRegistrationDomains: ["all"]
+            enforcePrincipalDomain: false
+
+          authentication:
+            enabled: true
+            provider: custom-oidc
+            # Confidential client: the authorization code flow runs on the server.
+            clientType: confidential
+            # Overridden by AUTHENTICATION_CLIENT_ID, read from the client secret (see extraEnvs).
+            clientId: openmetadata
+            authority: {{ $issuer | quote }}
+            callbackUrl: "https://{{ $host }}/callback"
+            responseType: code
+            publicKeys:
+              - "http://openmetadata:8585/api/v1/system/config/jwks"
+              - "{{ $issuer }}/protocol/openid-connect/certs"
+            jwtPrincipalClaims: ["preferred_username", "email", "sub"]
+            enableSelfSignup: {{ .Parameters.enableSelfSignup }}
+            oidcConfiguration:
+              enabled: true
+              oidcType: custom
+              clientId:
+                secretRef: {{ $oauthSecret | quote }}
+                secretKey: client_id
+              clientSecret:
+                secretRef: {{ $oauthSecret | quote }}
+                secretKey: client_secret
+              scope: {{ .Context.oidc.scope | default "openid profile email groups" | quote }}
+              discoveryUri: "{{ $issuer }}/.well-known/openid-configuration"
+              callbackUrl: "https://{{ $host }}/callback"
+              serverUrl: "https://{{ $host }}"
+
+          fernetkey:
+            value: ""
+            secretRef: {{ printf "creds-%s-fernet" $release | quote }}
+            secretKey: fernet-key
+
+          {{- if .Parameters.jwtKeysSecret }}
+          jwtTokenConfiguration:
+            enabled: true
+            rsapublicKeyFilePath: /etc/openmetadata/jwt/public_key.der
+            rsaprivateKeyFilePath: /etc/openmetadata/jwt/private_key.der
+            jwtissuer: {{ $host | quote }}
+          {{- end }}
+
+      ingress:
+        enabled: true
+        className: {{ .Context.ingress.className }}
+        annotations:
+          cert-manager.io/cluster-issuer: {{ .Context.certificateIssuers.selfSigned.name }}
+          nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        hosts:
+          - host: {{ $host }}
+            paths:
+              - path: /
+                pathType: Prefix
+        tls:
+          - secretName: openmetadata-tls
+            hosts:
+              - {{ $host }}
+
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "2"
+          memory: "{{ .Parameters.serverMemoryGi }}Gi"
+
+      extraEnvs:
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Parameters.db.secretRef | quote }}
+              key: username
+        - name: AUTHENTICATION_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ $oauthSecret | quote }}
+              key: client_id
+        # The server calls the OIDC provider (discovery, token, keys) over HTTPS:
+        # its JVM trusts the platform CA through the truststore built below.
+        - name: JAVA_TOOL_OPTIONS
+          value: "-Djavax.net.ssl.trustStore={{ $truststore }} -Djavax.net.ssl.trustStorePassword=changeit"
+
+      # Runs before the database migrations, which start a JVM with the options above.
+      preMigrateInitContainers:
+        - name: truststore
+          image: "docker.getcollate.io/openmetadata/server:2.0.0"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              JAVA_HOME="${JAVA_HOME:-$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")}"
+              cp "$JAVA_HOME/lib/security/cacerts" {{ $truststore }}
+              keytool -importcert -noprompt -alias okdp-platform-ca -file /cacerts/ca.crt \
+                -keystore {{ $truststore }} -storepass changeit
+          volumeMounts:
+            - name: cacerts
+              mountPath: /cacerts
+              readOnly: true
+            - name: truststore
+              mountPath: /truststore
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+      extraVolumes:
+        - name: cacerts
+          secret:
+            secretName: certs-bundle
+        - name: truststore
+          emptyDir: {}
+        {{- if .Parameters.jwtKeysSecret }}
+        - name: jwt-keys
+          secret:
+            secretName: {{ .Parameters.jwtKeysSecret | quote }}
+        {{- end }}
+
+      extraVolumeMounts:
+        - name: truststore
+          mountPath: /truststore
+        {{- if .Parameters.jwtKeysSecret }}
+        - name: jwt-keys
+          mountPath: /etc/openmetadata/jwt
+          readOnly: true
+        {{- end }}
+
+roles:
+  - catalog
+
+dependencies:
+  - database-server
+  - ingress

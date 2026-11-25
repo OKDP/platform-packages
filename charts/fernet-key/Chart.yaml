@@ -1,0 +1,8 @@
+apiVersion: v2
+name: fernet-key
+description: >-
+  Generates a Fernet key (32 random bytes, base64) in a Secret, once: the key
+  encrypts data a service stores, so it is read back and kept on every
+  upgrade. The kubernetes-secret-generator cannot produce this format.
+type: application
+version: 0.1.0
