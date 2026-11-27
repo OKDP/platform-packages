@@ -30,12 +30,25 @@ schema:
     properties:
       imageRepository: { type: string, default: "quay.io/okdp/images/okdp-control-plane-server", description: "Server image repository." }
       imageTag: { type: string, default: "0.9.0", description: "Server image tag. Set explicitly so the deployed image is pinned rather than following the chart appVersion." }
-      consoleHost: { type: string, description: "Console host, used verbatim as the single allowed origin. Defaults to okdp-ui.<ingress suffix>." }
+      consoleHost: { type: string, pattern: '^$|^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$', description: "Console host, used verbatim as the single allowed origin. Defaults to okdp-ui.<ingress suffix>." }
       kubocdNamespace: { type: string, default: "kubocd-system" }
       logLevel: { type: string, default: "info", enum: [debug, info, warn, error] }
       releaseInterval: { type: string, default: "30m" }
       releaseTimeout: { type: string, default: "10m" }
       insecureOciRegistries: { type: string, default: "", description: "Registry hosts reachable over plain HTTP, comma separated. A sandbox concern, empty anywhere else." }
+      registryCredentialsSecret: { type: string, default: "", pattern: '^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$', description: "Name of a kubernetes.io/dockerconfigjson Secret, in the target namespace, holding credentials for private package registries. Empty: anonymous access only." }
+      controlPlaneContextName: { type: string, default: "control-plane", pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$', description: "Control Plane Context, holding the service catalog written by the server." }
+      platformContextName: { type: string, default: "platform", pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$', description: "Platform Context (ingress, OIDC, identity). The server reads it and never writes it." }
+      persistenceMode: { type: string, default: "kubernetes", enum: [kubernetes, git], description: "Where the server stores the desired state. kubernetes writes the objects through the API. git commits them to the Git repository set by the git* parameters." }
+      gitUrl: { type: string, default: "", description: "HTTP(S) or SSH URL of the desired state Git repository. Required when persistenceMode is git." }
+      gitBranch: { type: string, default: "main", description: "Branch of the desired state Git repository." }
+      gitPath: { type: string, default: "", description: "Optional directory inside the Git repository, with no leading ./ and no trailing / (for example clusters/prod). Empty: the repository root." }
+      gitSync: { type: string, default: "flux", enum: [flux, none], description: "Tool that applies the Git repository to the cluster. none leaves it to an external tool." }
+      gitSecretName: { type: string, default: "", pattern: '^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$', description: "Secret in the target namespace holding the Git credentials, read by the server and by the Flux GitRepository: username and password (or bearerToken) over HTTP(S), with ca.crt for a server signed by a private authority. identity and known_hosts over SSH. Empty: anonymous access." }
+      gitInitialize: { type: boolean, default: true, description: "Bootstrap an empty repository and contexts/<controlPlaneContextName>.yaml on startup. Idempotent." }
+      gitCreateSyncResources: { type: boolean, default: true, description: "Render the Flux GitRepository, the Kustomization and their dedicated RBAC with the chart, when gitSync is flux." }
+      gitKeepSyncOnUninstall: { type: boolean, default: true, description: "Keep the Flux GitRepository, Kustomization and their dedicated RBAC objects (ServiceAccount, ClusterRole, ClusterRoleBinding) when the Control Plane is uninstalled, so Git keeps driving the cluster." }
+      gitSyncInterval: { type: string, default: "1m", description: "Reconciliation interval of the Flux GitRepository and Kustomization." }
   context:
     properties:
       ingress:
@@ -55,6 +68,31 @@ modules:
         repository: quay.io/okdp/charts/okdp-control-plane-server
         tag: 0.9.0
     values: |
+      {{- $gu := trim .Parameters.gitUrl }}
+      {{- if $gu }}
+      {{- if or (contains "?" $gu) (contains "#" $gu) (regexMatch `(?i)^ssh://[^/?#]*:[^/?#]*@` $gu) (regexMatch `(?i)^ssh://[^/?#]*@[^/?#]*@` $gu) (regexMatch `(?i)^ssh://@` $gu) (and (not (regexMatch `(?i)^ssh://` $gu)) (regexMatch `^([A-Za-z][A-Za-z0-9+.-]*:)?//[^/?#]*@` $gu)) (regexMatch `^[^/:?#]+:[^/:?#]*@` $gu) }}
+      {{- fail "gitUrl must not embed credentials or query parameters: use gitSecretName instead" }}
+      {{- end }}
+      {{- end }}
+      {{- if eq .Parameters.persistenceMode "git" }}
+      {{- if not $gu }}
+      {{- fail "gitUrl is required when persistenceMode is git" }}
+      {{- else if not (or (regexMatch `(?i)^(https?|ssh)://[^/?#[:space:][:cntrl:]\\]+(/[^[:space:][:cntrl:]\\]*)?$` $gu) (regexMatch `^[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?:[^[:space:][:cntrl:]\\]+$` $gu)) }}
+      {{- fail "gitUrl must use an http://, https://, ssh://, or SCP (user@host:path) URL" }}
+      {{- end }}
+      {{- end }}
+      {{- $gp := trim .Parameters.gitPath }}
+      {{- if $gp }}
+      {{- if not (regexMatch `^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$` $gp) }}
+      {{- fail (printf "gitPath %q must be a clean relative path with segments matching [A-Za-z0-9._-]+" $gp) }}
+      {{- end }}
+      {{- range (splitList "/" $gp) }}
+      {{- $seg := lower . }}
+      {{- if or (eq $seg ".") (eq $seg "..") (eq $seg ".git") }}
+      {{- fail (printf "gitPath %q must not contain '.', '..' or '.git' segments" $gp) }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
       {{- $domain := printf "%v" .Context.ingress.suffix -}}
       {{- $console := .Parameters.consoleHost | default (printf "okdp-ui.%s" $domain) -}}
 
@@ -70,15 +108,33 @@ modules:
       configuration:
         platformNamespace: {{ .Release.spec.targetNamespace | quote }}
         kubocdNamespace: {{ .Parameters.kubocdNamespace | quote }}
-        contextName: "platform"
-        contextNamespace: ""
-        platformContextName: ""
+        controlPlaneContextName: {{ .Parameters.controlPlaneContextName | quote }}
+        controlPlaneContextNamespace: ""
+        platformContextName: {{ .Parameters.platformContextName | quote }}
         platformContextNamespace: ""
         allowedOrigins: {{ printf "https://%s" $console | quote }}
         logLevel: {{ .Parameters.logLevel | quote }}
         releaseInterval: {{ .Parameters.releaseInterval | quote }}
         releaseTimeout: {{ .Parameters.releaseTimeout | quote }}
         insecureOciRegistries: {{ .Parameters.insecureOciRegistries | quote }}
+        registryCredentialsSecret: {{ .Parameters.registryCredentialsSecret | quote }}
+
+      engine:
+        type: kubocd
+        kubocd:
+          backend: flux
+          persistence:
+            mode: {{ .Parameters.persistenceMode | quote }}
+            git:
+              url: {{ ternary $gu "" (eq .Parameters.persistenceMode "git") | quote }}
+              branch: {{ .Parameters.gitBranch | quote }}
+              path: {{ $gp | quote }}
+              sync: {{ .Parameters.gitSync | quote }}
+              secretName: {{ .Parameters.gitSecretName | quote }}
+              initialize: {{ .Parameters.gitInitialize }}
+              createSyncResources: {{ .Parameters.gitCreateSyncResources }}
+              keepSyncOnUninstall: {{ .Parameters.gitKeepSyncOnUninstall }}
+              syncInterval: {{ .Parameters.gitSyncInterval | quote }}
 roles:
   - okdp-server
 dependencies:
